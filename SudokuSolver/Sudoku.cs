@@ -1,12 +1,11 @@
 ﻿using SudokuSolver.Extensions;
-using System.Collections.Concurrent;
 
 namespace SudokuSolver
 {
-    internal class Sudoku
+    public class Sudoku
     {
-        private Field[,] _fields2D;
-        private List<Field> _fields = new();
+        private readonly Field[,] _fields2D;
+        private readonly List<Field> _fields = [];
 
         public Sudoku()
         {
@@ -20,20 +19,19 @@ namespace SudokuSolver
                     _fields2D[row, col] = field;
                     _fields.Add(field);
                 }
-        }        
+        }
 
-        internal void Solve(string[] data)
+        public bool Solve(string[] data)
         {
             Initialize(data);
 
             int solvedCount = 0;
             bool slashedValuesFound = true;
             bool eliminatedValuesFound = false;
-            bool eliminatedOptionsFound = false;
-            bool dualOptionsFound= false;
-            bool tripleOptionsFound = false;
+            bool removedCandidates1 = false;
+            bool removedCandidates2= false;
 
-            while (slashedValuesFound || eliminatedValuesFound || eliminatedOptionsFound || dualOptionsFound || tripleOptionsFound)
+            while (slashedValuesFound || eliminatedValuesFound || removedCandidates1 || removedCandidates2)
             {
                 solvedCount = _fields.Where(f => f.Value != null).Count();
                 //Console.WriteLine($"Solved: {solvedCount}");
@@ -46,47 +44,59 @@ namespace SudokuSolver
                 // Try to find values by eliminating candidates
                 eliminatedValuesFound = FindEliminatedValues();
 
-                // Try to find values by eliminating candidates (advanced)
-                eliminatedOptionsFound = FindEliminatedOptions();
+                // Try to find values by removing candidates based on multiple fields in a block where a value can only exist in a single row or column.
+                removedCandidates1 = TryToRemoveCandidatesInOutsideBlocks();
 
-                // Try find values based on two or three fields in block containing value as candidate
-                if (!slashedValuesFound && !eliminatedValuesFound && !eliminatedOptionsFound) 
+                if (!slashedValuesFound && !eliminatedValuesFound && !removedCandidates1)
                 {
-                    // TODO vertalen
-                    // Identify situations where, regarding a segment, two fields contain only two different possible values (or three in the case of three fields, etc.)
-                    // For example, in block 1, fields 1 and 3 contain candidates with the possible values 4 and 8.
-                    // Block 1, field 1; Candidates: 4 5 7 8
-                    // Block 1, field 3; Candidates: 4 5 8
-                    // In such cases, remove the other candidates (5 and 7) from fields 1 and 3.
-                    // This applies to blocks, rows, and columns.
+                    // Complexity > 4 star puzzles. Time to bring out the big guns!
 
-                    dualOptionsFound = false;
-
-                    for (int i = 1; i <= 9; i++) 
-                    {
-                        if (CheckFieldsWithCandidates(_fields.Where(f => f.Block == i), "Block", 2))
-                            dualOptionsFound = true;
-
-                        if (CheckFieldsWithCandidates(_fields.Where(f => f.Row == i), "Row", 2))
-                            dualOptionsFound = true;
-
-                        if (CheckFieldsWithCandidates(_fields.Where(f => f.Column == i), "Column", 2))
-                            dualOptionsFound = true;
-                    }
-
-                    tripleOptionsFound = false;
+                    removedCandidates2 = CheckFieldsWithSimilarCandidates();
                 }
             }
 
-            Console.ForegroundColor = solvedCount == _fields.Count ? ConsoleColor.Green : ConsoleColor.Red;
+            var solved = solvedCount == _fields.Count;
 
-            if (solvedCount == _fields.Count)
+            Console.ForegroundColor = solved ? ConsoleColor.Green : ConsoleColor.Red;
+
+            if (solved)
                 Console.WriteLine("Solved:");
             else
                 Console.WriteLine("Not solved:");
 
             Console.ResetColor();
             Console.WriteLine(this);
+
+            return solved;
+        }
+
+        private bool CheckFieldsWithSimilarCandidates()
+        {            
+            // Identify situations where, regarding a segment, two fields contain only two different possible values (or three in the case of three fields, etc.)
+            // For example, in block 1, fields 1 and 3 contain candidates with the possible values 4 and 8.
+            // Block 1, field 1; Candidates: 4 5 7 8
+            // Block 1, field 3; Candidates: 4 5 8
+            // In such cases, remove the other candidates (5 and 7) from fields 1 and 3.
+            // This applies to blocks, rows, and columns.
+
+            bool removedCandidates2 = false;
+
+            for (int candidateCount = 2; candidateCount <= 4; candidateCount++)
+            {
+                for (int i = 1; i <= 9; i++)
+                {
+                    if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Block == i), "Block", candidateCount))
+                        removedCandidates2 = true;
+
+                    if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Row == i), "Row", candidateCount))
+                        removedCandidates2 = true;
+
+                    if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Column == i), "Column", candidateCount))
+                        removedCandidates2 = true;
+                }
+            }
+
+            return removedCandidates2;
         }
 
         private bool FindSlashedValues()
@@ -157,10 +167,10 @@ namespace SudokuSolver
         }
 
         // Per block try to find situations where a value can only exist in one row or column (e.g. two fields in block 2 on the same row where only a 7 can go).
-        // In those cases eliminate 7 as a candidate on that row in the other horizontal blocks (= block 1 and 3) and see what happens.
-        private bool FindEliminatedOptions()
+        // In those cases eliminate 7 as a candidate of fields on that row in the other horizontal blocks (= block 1 and 3) and see what happens.
+        private bool TryToRemoveCandidatesInOutsideBlocks()
         {
-            var eliminatedOptionsFound = false;
+            var removedCandidate = false;
 
             for (int block = 1; block <= 9; block++)
             {
@@ -170,30 +180,45 @@ namespace SudokuSolver
 
                     if (fieldsInBlockWithValueInCandidates.Count <= 3)
                     {
-                        // On same row?
+                        // In same row?
                         if (fieldsInBlockWithValueInCandidates.GroupBy(f => f.Row).Count() == 1)
                         {
-                            var result = EliminateOptions(block, value, fieldsInBlockWithValueInCandidates, true);
+                            var result = RemoveCandidatesOutsideBlock(block, value, fieldsInBlockWithValueInCandidates, true);
 
                             if (result)
-                                eliminatedOptionsFound = true;
+                                removedCandidate = true;
                         }
 
-                        // On same column?
+                        // In same column?
                         if (fieldsInBlockWithValueInCandidates.GroupBy(f => f.Column).Count() == 1)
                         {
-                            var result = EliminateOptions(block, value, fieldsInBlockWithValueInCandidates, false);
+                            var result = RemoveCandidatesOutsideBlock(block, value, fieldsInBlockWithValueInCandidates, false);
 
                             if (result)
-                                eliminatedOptionsFound = true;
+                                removedCandidate = true;
                         }
                     }
                 }
             }
+            return removedCandidate;
+        }
+
+        private bool RemoveCandidatesOutsideBlock(int block, int value, List<Field> fieldsInBlockWithValueInCandidates, bool isRow)
+        {
+            var eliminatedOptionsFound = false;
+
+            var fieldsOutsideBlock = _fields.Where(f => f.Block != block);
+            fieldsOutsideBlock = isRow ?
+                fieldsOutsideBlock.Where(f => f.Row == fieldsInBlockWithValueInCandidates[0].Row) :
+                fieldsOutsideBlock.Where(f => f.Column == fieldsInBlockWithValueInCandidates[0].Column);
+
+            eliminatedOptionsFound = fieldsOutsideBlock.CandidatesContainsValue(value);
+
+            fieldsOutsideBlock.RemoveValueFromCandidates(value);
             return eliminatedOptionsFound;
         }
 
-        private static bool CheckFieldsWithCandidates(IEnumerable<Field> fields, string segment, int candidateCount)
+        private  bool CheckFieldsWithSimilarCandidates(IEnumerable<Field> fields, string segment, int candidateCount)
         {
             var combinations = new List<ValueCombination>();
             bool candidateRemoved = false;
@@ -252,22 +277,6 @@ namespace SudokuSolver
             return list.SelectMany((item, index) =>
                 GetCombinations(list.Skip(index + 1).ToList(), length - 1),
                 (item, items) => new List<int> { item }.Concat(items).ToList());
-        }
-
-
-        private bool EliminateOptions(int block, int value, List<Field> fieldsInBlockWithValueInCandidates, bool isRow)
-        {
-            var eliminatedOptionsFound = false;
-
-            var fieldsOutsideBlock = _fields.Where(f => f.Block != block); 
-            fieldsOutsideBlock = isRow ?
-                fieldsOutsideBlock.Where(f => f.Row == fieldsInBlockWithValueInCandidates[0].Row) :
-                fieldsOutsideBlock.Where(f => f.Column == fieldsInBlockWithValueInCandidates[0].Column);
-
-            eliminatedOptionsFound = fieldsOutsideBlock.CandidatesContainsValue(value);
-
-            fieldsOutsideBlock.RemoveValueFromCandidates(value);
-            return eliminatedOptionsFound;
         }
 
         // Initialize the puzzle
