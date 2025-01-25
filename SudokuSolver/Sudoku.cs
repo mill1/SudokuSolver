@@ -25,29 +25,30 @@ namespace SudokuSolver
         {
             Initialize(data);
 
-            int solvedCount = 0;
-            bool slashedValuesFound = true;
-            bool eliminatedValuesFound = false;
+            int solutionsCount = 0;
+            bool foundSolutionsBySlashing = true;
+            bool foundSolutionsByElimination = false;
             bool removedCandidates1 = false;
-            bool removedCandidates2= false;
+            bool removedCandidates2 = false;
+            bool removedCandidates3 = false;
 
-            while (slashedValuesFound || eliminatedValuesFound || removedCandidates1 || removedCandidates2)
+            while (foundSolutionsBySlashing || foundSolutionsByElimination || removedCandidates1 || removedCandidates2 || removedCandidates3)
             {
-                solvedCount = _fields.Where(f => f.Value != null).Count();
+                solutionsCount = _fields.Where(f => f.Value != null).Count();
                 //Console.WriteLine($"Solved: {solvedCount}");
-                if ( solvedCount == _fields.Count )
+                if ( solutionsCount == _fields.Count )
                     break;
 
                 // Try to find values by 'slashing'
-                slashedValuesFound = FindSlashedValues();
+                foundSolutionsBySlashing = FindSolutionsBySlashing();
 
                 // Try to find values by eliminating candidates
-                eliminatedValuesFound = FindEliminatedValues();
+                foundSolutionsByElimination = FindSolutionsByElimination();
 
                 // Try to find values by removing candidates based on multiple fields in a block where a value can only exist in a single row or column.
                 removedCandidates1 = TryToRemoveCandidatesInOutsideBlocks();
 
-                if (!slashedValuesFound && !eliminatedValuesFound && !removedCandidates1)
+                if (!foundSolutionsBySlashing && !foundSolutionsByElimination && !removedCandidates1)
                 {
                     // Complexity > 4 star puzzles. Time to bring out the big guns!
 
@@ -55,7 +56,7 @@ namespace SudokuSolver
                 }
             }
 
-            var solved = solvedCount == _fields.Count;
+            var solved = solutionsCount == _fields.Count;
 
             Console.ForegroundColor = solved ? ConsoleColor.Green : ConsoleColor.Red;
 
@@ -99,9 +100,9 @@ namespace SudokuSolver
             return removedCandidates2;
         }
 
-        private bool FindSlashedValues()
+        private bool FindSolutionsBySlashing()
         {
-            bool valuesFound = false;
+            bool solutionsFound = false;
             foreach (var field in _fields)
             {
                 if (field.Value != null)
@@ -124,17 +125,17 @@ namespace SudokuSolver
                         {
                             field.Value = value;
                             field.Candidates = [value];
-                            valuesFound = true;
+                            solutionsFound = true;
                         }
                     }
                 }
             }
-            return valuesFound;
+            return solutionsFound;
         }
 
-        private bool FindEliminatedValues()
+        private bool FindSolutionsByElimination()
         {
-            bool valuesFound = false;
+            bool solutionsFound = false;
 
             foreach (var field in _fields)
             {
@@ -159,11 +160,10 @@ namespace SudokuSolver
                 if (field.Value == null)
                 {
                     field.Value = field.Candidates[0];
-                    valuesFound = true;
+                    solutionsFound = true;
                 }
             }
-
-            return valuesFound;
+            return solutionsFound;
         }
 
         // Per block try to find situations where a value can only exist in one row or column (e.g. two fields in block 2 on the same row where only a 7 can go).
