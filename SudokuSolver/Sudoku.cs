@@ -39,20 +39,21 @@ namespace SudokuSolver
                 if ( solutionsCount == _fields.Count )
                     break;
 
-                // Try to find values by 'slashing'
+                // Try to find solutions by 'slashing'
                 foundSolutionsBySlashing = FindSolutionsBySlashing();
 
-                // Try to find values by eliminating candidates
+                // Try to find solutions by eliminating candidates
                 foundSolutionsByElimination = FindSolutionsByElimination();
 
-                // Try to find values by removing candidates based on multiple fields in a block where a value can only exist in a single row or column.
+                // Try to remove candidates based on multiple fields in a block where a value can only exist in a single row or column.
                 removedCandidates1 = TryToRemoveCandidatesInOutsideBlocks();
 
                 if (!foundSolutionsBySlashing && !foundSolutionsByElimination && !removedCandidates1)
                 {
                     // Complexity > 4 star puzzles. Time to bring out the big guns!
+                    removedCandidates2 = CheckRowsAndColumnsWithinBlockGroup();
 
-                    removedCandidates2 = CheckFieldsWithSimilarCandidates();
+                    removedCandidates3 = CheckFieldsWithSimilarCandidates();
                 }
             }
 
@@ -71,6 +72,19 @@ namespace SudokuSolver
             return solved;
         }
 
+        private bool CheckRowsAndColumnsWithinBlockGroup()
+        {
+            // There are six 'block groups'; three horizontal and three vertical;
+            // First horizontal block group: block 1, block 2 and block 3
+            // Last vertical block group: block 3, block 6 and block 9
+            // For each block group check the following for values 1-9 (example: horizontal): 
+            // Check if a value will only fit in the same TWO rows regarding two blocks.
+            // If so then the OTHER row w.r. to the OTHER block cannot contain that value.
+            // The same is true regarding vertical block groups.
+            
+            return false;
+        }
+
         private bool CheckFieldsWithSimilarCandidates()
         {            
             // Identify situations where, regarding a segment, two fields contain only two different possible values (or three in the case of three fields, etc.)
@@ -80,24 +94,24 @@ namespace SudokuSolver
             // In such cases, remove the other candidates (5 and 7) from fields 1 and 3.
             // This applies to blocks, rows, and columns.
 
-            bool removedCandidates2 = false;
+            bool removedCandidates3 = false;
 
             for (int candidateCount = 2; candidateCount <= 4; candidateCount++)
             {
                 for (int i = 1; i <= 9; i++)
                 {
                     if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Block == i), "Block", candidateCount))
-                        removedCandidates2 = true;
+                        removedCandidates3 = true;
 
                     if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Row == i), "Row", candidateCount))
-                        removedCandidates2 = true;
+                        removedCandidates3 = true;
 
                     if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Column == i), "Column", candidateCount))
-                        removedCandidates2 = true;
+                        removedCandidates3 = true;
                 }
             }
 
-            return removedCandidates2;
+            return removedCandidates3;
         }
 
         private bool FindSolutionsBySlashing()
@@ -218,7 +232,7 @@ namespace SudokuSolver
             return eliminatedOptionsFound;
         }
 
-        private  bool CheckFieldsWithSimilarCandidates(IEnumerable<Field> fields, string segment, int candidateCount)
+        private static bool CheckFieldsWithSimilarCandidates(IEnumerable<Field> fields, string segment, int candidateCount)
         {
             var combinations = new List<ValueCombination>();
             bool candidateRemoved = false;
