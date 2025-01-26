@@ -60,7 +60,7 @@
                 "3 52  4 8",
             ];
 
-            new Sudoku().Solve(data15);
+            new Sudoku().Solve(data13);
         }
     }
 }

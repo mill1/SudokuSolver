@@ -26,7 +26,6 @@ namespace SudokuSolver
             Initialize(data);
 
             int solutionsCount = 0;
-
             bool foundSolutionsBySlashing = true;
             bool foundSolutionsByElimination = false;
             bool removedCandidates1 = false;
@@ -36,7 +35,7 @@ namespace SudokuSolver
             while (foundSolutionsBySlashing || foundSolutionsByElimination || removedCandidates1 || removedCandidates2 || removedCandidates3)
             {
                 solutionsCount = _fields.Where(f => f.Value != null).Count();
-                Console.WriteLine($"Solved: {solutionsCount}");
+                // Console.WriteLine($"Solved: {solutionsCount}");
 
                 if ( solutionsCount == _fields.Count )
                     break;
@@ -48,7 +47,7 @@ namespace SudokuSolver
                 {
                     // Complexity > 4 star puzzles. Time to bring out the big guns!                    
                     removedCandidates1 = TryToRemoveCandidatesInOutsideBlocks();
-                    removedCandidates2 = CheckRowsAndColumnsWithinBlockGroup();
+                    removedCandidates2 = CheckTwoOptionsWithinBlockGroups();
                     removedCandidates3 = CheckFieldsWithSimilarCandidates();
                 }
             }
@@ -57,15 +56,46 @@ namespace SudokuSolver
 
             Console.ForegroundColor = solved ? ConsoleColor.Green : ConsoleColor.Red;
 
-            if (solved)
+            if (solved) 
+            {
+                CheckValiditySolution();
                 Console.WriteLine("Solved:");
+            }
             else
                 Console.WriteLine("Not solved:");
 
-            Console.ResetColor();
+            Console.ForegroundColor = ConsoleColor.White; 
             Console.WriteLine(this);
 
             return solved;
+        }
+
+        private void CheckValiditySolution()
+        {
+            
+            List<int> actual;
+
+            for (int i = 1; i <= 9; i++)
+            {
+                actual = _fields.Where(f => f.Row == i).Select(f => (int)f.Value).ToList();
+                CheckValidity(actual, i, "Row");
+
+                actual = _fields.Where(f => f.Column == i).Select(f => (int)f.Value).ToList();
+                CheckValidity(actual, i, "Column");
+
+                actual = _fields.Where(f => f.Block == i).Select(f => (int)f.Value).ToList();
+                CheckValidity(actual, i, "Block");
+            }
+        }
+
+        private static void CheckValidity(List<int> actual, int i, string segment)
+        {
+            var expected = Enumerable.Range(1, 9).ToList();
+
+            if (actual.Except(expected).Any())
+            {
+                throw new InvalidOperationException($"Invalid solution! {segment} = {i}");
+            };
         }
 
         // Per value remove candidates from other fields within the same segment (row, column or block).
@@ -148,7 +178,7 @@ namespace SudokuSolver
             }
         }
 
-        private bool CheckRowsAndColumnsWithinBlockGroup()
+        private bool CheckTwoOptionsWithinBlockGroups()
         {
             // There are six 'block groups'; three horizontal and three vertical;
             // First horizontal block group: block 1, block 2 and block 3
@@ -158,91 +188,122 @@ namespace SudokuSolver
             // If so then the OTHER row w.r. to the OTHER block cannot contain that value.
             // The same is true regarding vertical block groups.
 
+            // Horizontal            
             var blockGroups = new List<List<Field>>
             {
-                // Horizontal
                 _fields.Where(f => new[] { 1, 2, 3 }.Contains(f.Block)).ToList(),
                 _fields.Where(f => new[] { 4, 5, 6 }.Contains(f.Block)).ToList(),
                 _fields.Where(f => new[] { 7, 8, 9 }.Contains(f.Block)).ToList(),
-                // Vertical
-                // TODO
-                //_fields.Where(f => new[] { 1, 4, 7 }.Contains(f.Block)).ToList(),
-                //_fields.Where(f => new[] { 2, 5, 8 }.Contains(f.Block)).ToList(),
-                //_fields.Where(f => new[] { 3, 6, 9 }.Contains(f.Block)).ToList()
             };
+            var removedCandidatesRows = CheckTwoOptionsWithinBlockGroups(blockGroups, horizontal:true);
+
+            // Vertical
+            blockGroups = new List<List<Field>>
+            {
+                _fields.Where(f => new[] { 1, 4, 7 }.Contains(f.Block)).ToList(),
+                _fields.Where(f => new[] { 2, 5, 8 }.Contains(f.Block)).ToList(),
+                _fields.Where(f => new[] { 3, 6, 9 }.Contains(f.Block)).ToList()
+            };
+            var removedCandidatesColumns = CheckTwoOptionsWithinBlockGroups(blockGroups, horizontal: false);
+
+            return removedCandidatesRows || removedCandidatesColumns;
+        }
+
+        private bool CheckTwoOptionsWithinBlockGroups(List<List<Field>> blockGroups, bool horizontal)
+        {
+            bool removedCandidates = false;
+            bool candidatesWhereRemoved;
 
             foreach (var blockGroup in blockGroups)
             {
-                for (int value = 1; value <=9 ; value++)
+                for (int value = 1; value <= 9; value++)
                 {
                     var blockGroupData = GetBlockData(value, blockGroup);
 
-                    CheckValueCanFitInTwoRowsInTwoBlocksOnly(value, blockGroup);
+                    if (horizontal)
+                        candidatesWhereRemoved = CheckValueCanFitInTwoRowsInTwoBlocksOnly(value, blockGroupData);
+                    else
+                        candidatesWhereRemoved = CheckValueCanFitInTwoColumnsInTwoBlocksOnly(value, blockGroupData);
+
+                    if (candidatesWhereRemoved)
+                        removedCandidates = true;
                 }
             }
-
-            // TODO
-            return false;
+            return removedCandidates;
         }
 
         private List<BlockData> GetBlockData(int value, List<Field> blockGroup)
         {
-            var blockA = blockGroup.Where(b => b.Block == blockGroup[0].Block).ToList();
-            var blockB = blockGroup.Where(b => b.Block == blockGroup[3].Block).ToList();
-            var blockC = blockGroup.Where(b => b.Block == blockGroup[6].Block).ToList();
-
-            var results = new List<BlockData>()
+            return new List<BlockData>()
             {
-                 new() { Block = blockA, RowsContainingValue = ResolveRowsContainingValue(value, blockA), ColumnsContainingValue = ResolveColumnsContainingValue(value, blockA) },
-                 new() { Block = blockB, RowsContainingValue = ResolveRowsContainingValue(value, blockB), ColumnsContainingValue = ResolveColumnsContainingValue(value, blockB) },
-                 new() { Block = blockC, RowsContainingValue = ResolveRowsContainingValue(value, blockC), ColumnsContainingValue = ResolveColumnsContainingValue(value, blockC) },
+                 ResolveBlockData(value, blockGroup.Where(b => b.Block == blockGroup[0].Block).ToList()),
+                 ResolveBlockData(value, blockGroup.Where(b => b.Block == blockGroup[3].Block).ToList()),
+                 ResolveBlockData(value, blockGroup.Where(b => b.Block == blockGroup[6].Block).ToList()),
             };
-
-            return results;
         }
 
-        private class BlockData
+        private static BlockData ResolveBlockData(int value, List<Field> block)
         {
-            int value {  get; set; }
-            public List<Field> Block { get; set; }
-            public IEnumerable<IGrouping<int, Field>> RowsContainingValue { get; set; }
-            public IEnumerable<IGrouping<int, Field>> ColumnsContainingValue { get; set; }
+            return new() 
+            { 
+                Value = value, 
+                Block = block, 
+                RowsContainingValue = ResolveRowsContainingValue(value, block), 
+                ColumnsContainingValue = ResolveColumnsContainingValue(value, block) 
+            };
         }
 
-        private void CheckValueCanFitInTwoRowsInTwoBlocksOnly(int value, List<Field> blockGroup)
+        private bool CheckValueCanFitInTwoRowsInTwoBlocksOnly(int value, List<BlockData> blockData)
         {
-            var blockA = blockGroup.Where(b => b.Block == blockGroup[0].Block).ToList();
-            var blockARowsContainingValue = ResolveRowsContainingValue(value, blockA);
-            var blockB = blockGroup.Where(b => b.Block == blockGroup[3].Block).ToList();
-            var blockBRowsContainingValue = ResolveRowsContainingValue(value, blockB);
-            var blockC = blockGroup.Where(b => b.Block == blockGroup[6].Block).ToList();
-            var blockCRowsContainingValue = ResolveRowsContainingValue(value, blockC);
-            
-            var results = new List<BlockData>()
-            {
-                 new() { Block = blockA, RowsContainingValue = blockARowsContainingValue },
-                 new() { Block = blockB, RowsContainingValue = blockBRowsContainingValue },
-                 new() { Block = blockC, RowsContainingValue = blockCRowsContainingValue }
-            };
-
-            var counts = results.Select(r => r.RowsContainingValue.Count());
+            var counts = blockData.Select(r => r.RowsContainingValue.Count());
             if (!(counts.Count(c => c == 2) == 2 && counts.Contains(3)))
-                return;
+                return false;
 
             // Resolve the row id's of the block where the value will fit in all three rows. 
-            var resultTwoRows = results.Where(r => r.RowsContainingValue.Count() == 2).First();
-            var rowsTwo =  resultTwoRows.RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct();
-            var resultThreeRows = results.Where(r => r.RowsContainingValue.Count() == 3).First();
+            var resultTwoRows = blockData.Where(r => r.RowsContainingValue.Count() == 2).First();
+            var rowsTwo = resultTwoRows.RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct();
+            var resultThreeRows = blockData.Where(r => r.RowsContainingValue.Count() == 3).First();
             var rowsThree = resultThreeRows.RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct();
 
             // Remove candidates from the block from the 'other' row.
             var targetRow = rowsThree.Except(rowsTwo).First();
-
             var targetFields = resultThreeRows.Block.Where(f => f.Row == targetRow);
 
-            targetFields.RemoveValueFromCandidates(value);
+            return RemoveValueFromTargetFieldsCandidates(value, targetFields);
         }
 
+        private static bool CheckValueCanFitInTwoColumnsInTwoBlocksOnly(int value, List<BlockData> blockData)
+        {
+            var counts = blockData.Select(r => r.ColumnsContainingValue.Count());
+            if (!(counts.Count(c => c == 2) == 2 && counts.Contains(3)))
+                return false;
+
+            // Resolve the column id's of the block where the value will fit in all three columns. 
+            var resultTwoColumns = blockData.Where(r => r.ColumnsContainingValue.Count() == 2).First();
+            var columnsTwo = resultTwoColumns.ColumnsContainingValue.SelectMany(g => g).Select(f => f.Column).Distinct();
+            var resultThreeColumns = blockData.Where(r => r.ColumnsContainingValue.Count() == 3).First();
+            var columnsThree = resultThreeColumns.ColumnsContainingValue.SelectMany(g => g).Select(f => f.Column).Distinct();
+
+            // Remove candidates from the block from the 'other' column.
+            var targetColumn = columnsThree.Except(columnsTwo).First();
+            var targetFields = resultThreeColumns.Block.Where(f => f.Column == targetColumn);
+
+            return RemoveValueFromTargetFieldsCandidates(value, targetFields);
+        }
+
+        private static bool RemoveValueFromTargetFieldsCandidates(int value, IEnumerable<Field> targetFields)
+        {
+            int candidatesCountBefore = GetSumOfCandidatesCounts(targetFields);
+            targetFields.RemoveValueFromCandidates(value);
+            int candidatesCountAfter = GetSumOfCandidatesCounts(targetFields);
+
+            return candidatesCountAfter != candidatesCountBefore;
+        }
+
+        private static int GetSumOfCandidatesCounts(IEnumerable<Field> targetFields)
+        {
+            return targetFields.Select(f => f.Candidates.Count).Aggregate((a, b) => a + b);
+        }
 
         private static IEnumerable<IGrouping<int, Field>> ResolveRowsContainingValue(int value, List<Field> block)
         {
@@ -372,7 +433,7 @@ namespace SudokuSolver
                             {
                                 if (!combination.Contains(candidate))
                                 {
-                                    //Console.WriteLine($"Check {segment}: {candidateCount}-candidate combination: {string.Join(" ", combination)}, Removing candidate {candidate}"); Console.WriteLine(field.ToString());
+                                    // Console.WriteLine($"Check {segment}: {candidateCount}-candidate combination: {string.Join(" ", combination)}, Removing candidate {candidate}"); Console.WriteLine(field.ToString());
                                     field.RemoveValueFromCandidates(candidate);
                                     candidateRemoved = true;
                                 }
@@ -418,14 +479,36 @@ namespace SudokuSolver
 
             for (int row = 0; row < 9; row++)
             {
+                if(row % 3 == 0)
+                    output += "+-----------+\n";
+
+                for (int col = 0; col < 9; col++)
+                {
+                    if (col % 3 == 0)
+                        output += "|";
+
+                    output += _fields2D[row, col].Value == null ? " " : _fields2D[row, col].Value.ToString();
+                }
+                output += "|\n";
+            }
+            output += "+-----------+";
+
+            return output;
+        }
+
+        public string ToString2()
+        {
+            var output = string.Empty;
+
+            for (int row = 0; row < 9; row++)
+            {
                 for (int col = 0; col < 9; col++)
                 {
                     output += _fields2D[row, col].Value == null ? " " : _fields2D[row, col].Value.ToString();
-                    //output += $"{_fields2D[row, col]}\r\n";
+                    // or output += $"{_fields2D[row, col]}\r\n";
                 }
                 output += "\r\n";
             }
-
             return output;
         }
 
@@ -433,6 +516,14 @@ namespace SudokuSolver
         {
             public List<int> Values { get; set; }
             public List<Field> Fields { get; set; }
+        }
+
+        private class BlockData
+        {
+            public int Value { get; set; }
+            public List<Field> Block { get; set; }
+            public IEnumerable<IGrouping<int, Field>> RowsContainingValue { get; set; }
+            public IEnumerable<IGrouping<int, Field>> ColumnsContainingValue { get; set; }
         }
     }
 }
