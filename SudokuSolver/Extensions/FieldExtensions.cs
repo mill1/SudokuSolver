@@ -2,17 +2,17 @@
 {
     internal static class FieldExtensions
     {
-        public static IEnumerable<Field> GetOtherRowFields(this Field field, List<Field> fields)
+        public static IEnumerable<Field> OtherRowFields(this Field field, List<Field> fields)
         {
             return fields.Where(f => f.Row == field.Row && f.Column != field.Column);
         }
 
-        public static IEnumerable<Field> GetOtherColumnFields(this Field field, List<Field> fields)
+        public static IEnumerable<Field> OtherColumnFields(this Field field, List<Field> fields)
         {
             return fields.Where(f => f.Column == field.Column && f.Row != field.Row);
         }
 
-        public static IEnumerable<Field> GetOtherBlockFields(this Field field, List<Field> fields)
+        public static IEnumerable<Field> OtherBlockFields(this Field field, List<Field> fields)
         {
             return fields.Where(f => f.Block == field.Block && f != field);
         }
