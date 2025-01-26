@@ -60,7 +60,22 @@
                 "3 52  4 8",
             ];
 
-            new Sudoku().Solve(data13);
+            // https://www.sudoku9x9.com/expert/
+            // 5 star page 0
+            string[] dataA =
+            [
+                "      3 9",
+                "    4  6 ",
+                "    26  8",
+                "5 1  4 2 ",
+                " 7  18   ",
+                "  6      ",
+                "8     6  ",
+                "    95  7",
+                "4  3   1 ",
+            ];
+
+            new Sudoku().Solve(dataA);
         }
     }
 }

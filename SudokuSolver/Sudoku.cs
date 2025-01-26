@@ -6,6 +6,7 @@ namespace SudokuSolver
     {
         private readonly Field[,] _fields2D;
         private readonly List<Field> _fields = [];
+        private int iteration = 0;
 
         public Sudoku()
         {
@@ -24,19 +25,17 @@ namespace SudokuSolver
         public bool Solve(string[] data)
         {
             Initialize(data);
-
+            
             int solutionsCount = 0;
             bool foundSolutionsBySlashing = true;
             bool foundSolutionsByElimination = false;
-            bool removedCandidates1 = false;
-            bool removedCandidates2 = false;
-            bool removedCandidates3 = false;
+            bool removedCandidates = false;
 
-            while (foundSolutionsBySlashing || foundSolutionsByElimination || removedCandidates1 || removedCandidates2 || removedCandidates3)
+            while (foundSolutionsBySlashing || foundSolutionsByElimination || removedCandidates)
             {
+                iteration++;
                 solutionsCount = _fields.Where(f => f.Value != null).Count();
-                Console.WriteLine($"Solved: {solutionsCount}");
-                Console.WriteLine(this);
+                Console.WriteLine($"\nIteration {iteration}, solved: {solutionsCount}"); Console.WriteLine(this);
 
                 if ( solutionsCount == _fields.Count )
                     break;
@@ -46,11 +45,29 @@ namespace SudokuSolver
 
                 if (!foundSolutionsBySlashing && !foundSolutionsByElimination)
                 {
-                    // Complexity > 4 star puzzles. Time to bring out the big guns!                    
-                    removedCandidates1 = TryToRemoveCandidatesInOutsideBlocks();
-                    removedCandidates2 = CheckTwoOptionsWithinBlockGroups();
-                    // TODO aanzetten
-                    //removedCandidates3 = CheckFieldsWithSimilarCandidates();
+                    // Complexity > 4 star puzzles. Time to bring out the big guns!
+                    removedCandidates = false;
+
+                    if (TryToRemoveCandidatesInOutsideBlocks())
+                    {
+                        removedCandidates = true;
+                        FindSolutionByResolvingSingleCandidate();
+                        FindSolutionBasedOnOtherSegments();
+                    }
+
+                    if (CheckTwoOptionsWithinBlockGroups())
+                    {
+                        removedCandidates = true;
+                        FindSolutionByResolvingSingleCandidate();
+                        FindSolutionBasedOnOtherSegments();
+                    }
+
+                    if (CheckFieldsWithSimilarCandidates())
+                    {
+                        removedCandidates = true;
+                        FindSolutionByResolvingSingleCandidate();
+                        FindSolutionBasedOnOtherSegments();
+                    }
                 }
             }
 
@@ -72,14 +89,14 @@ namespace SudokuSolver
             return solved;
         }
 
-        private static void CheckValidity(List<int> actual, int i, string segment)
+        private void CheckValidity(List<int> actual, int i, string segment)
         {
             var expected = Enumerable.Range(1, 9).ToList();
             var result = expected.Except(actual);
 
             if (result.Any())
             {
-                throw new InvalidOperationException($"Invalid solution! {segment} {i}, missing value: {result.First()}");
+                throw new InvalidOperationException($"Invalid solution! {segment} {i}, missing value: {result.First()} iteration {iteration}");
             };
         }
 
@@ -87,9 +104,13 @@ namespace SudokuSolver
         // Solution is found by asserting that all other fields do not contain the value as a candidate in any segment.
         private bool FindSolutionsBySlashing()
         {
-            bool solutionsFound = false;
-            
             TryToRemoveCandidatesBySlashing();
+            return FindSolutionBasedOnOtherSegments();
+        }
+
+        private bool FindSolutionBasedOnOtherSegments()
+        {
+            bool solutionsFound = false;
 
             foreach (var field in _fields)
             {
@@ -128,8 +149,13 @@ namespace SudokuSolver
         // Solution is found by asserting that only one candidate is left.
         private bool FindSolutionsByElimination()
         {
-            bool solutionsFound = false;
             TryToRemoveCandidatesByElmination();
+            return FindSolutionByResolvingSingleCandidate();
+        }
+
+        private bool FindSolutionByResolvingSingleCandidate()
+        {
+            bool solutionsFound = false;
 
             foreach (var field in _fields.Where(f => f.Candidates.Count == 1))
             {
@@ -139,6 +165,7 @@ namespace SudokuSolver
                     solutionsFound = true;
                 }
             }
+
             return solutionsFound;
         }
 
@@ -195,7 +222,6 @@ namespace SudokuSolver
         private bool CheckTwoOptionsWithinBlockGroups(List<List<Field>> blockGroups, bool horizontal)
         {
             bool removedCandidates = false;
-            bool candidatesWhereRemoved;
 
             foreach (var blockGroup in blockGroups)
             {
@@ -204,12 +230,15 @@ namespace SudokuSolver
                     var blockGroupData = GetBlockData(value, blockGroup);
 
                     if (horizontal)
-                        candidatesWhereRemoved = CheckValueCanFitInTwoRowsInTwoBlocksOnly(value, blockGroupData);
-                    else
-                        candidatesWhereRemoved = CheckValueCanFitInTwoColumnsInTwoBlocksOnly(value, blockGroupData);
-
-                    if (candidatesWhereRemoved)
-                        removedCandidates = true;
+                    {
+                        if (CheckValueCanFitInTwoRowsInTwoBlocksOnly(value, blockGroupData))
+                            removedCandidates = true;
+                    }
+                    else // vertical
+                    {
+                        if(CheckValueCanFitInTwoColumnsInTwoBlocksOnly(value, blockGroupData))
+                            removedCandidates = true;
+                    }
                 }
             }
             return removedCandidates;
