@@ -35,7 +35,8 @@ namespace SudokuSolver
             while (foundSolutionsBySlashing || foundSolutionsByElimination || removedCandidates1 || removedCandidates2 || removedCandidates3)
             {
                 solutionsCount = _fields.Where(f => f.Value != null).Count();
-                // Console.WriteLine($"Solved: {solutionsCount}");
+                Console.WriteLine($"Solved: {solutionsCount}");
+                Console.WriteLine(this);
 
                 if ( solutionsCount == _fields.Count )
                     break;
@@ -48,7 +49,8 @@ namespace SudokuSolver
                     // Complexity > 4 star puzzles. Time to bring out the big guns!                    
                     removedCandidates1 = TryToRemoveCandidatesInOutsideBlocks();
                     removedCandidates2 = CheckTwoOptionsWithinBlockGroups();
-                    removedCandidates3 = CheckFieldsWithSimilarCandidates();
+                    // TODO aanzetten
+                    //removedCandidates3 = CheckFieldsWithSimilarCandidates();
                 }
             }
 
@@ -70,31 +72,14 @@ namespace SudokuSolver
             return solved;
         }
 
-        private void CheckValiditySolution()
-        {
-            
-            List<int> actual;
-
-            for (int i = 1; i <= 9; i++)
-            {
-                actual = _fields.Where(f => f.Row == i).Select(f => (int)f.Value).ToList();
-                CheckValidity(actual, i, "Row");
-
-                actual = _fields.Where(f => f.Column == i).Select(f => (int)f.Value).ToList();
-                CheckValidity(actual, i, "Column");
-
-                actual = _fields.Where(f => f.Block == i).Select(f => (int)f.Value).ToList();
-                CheckValidity(actual, i, "Block");
-            }
-        }
-
         private static void CheckValidity(List<int> actual, int i, string segment)
         {
             var expected = Enumerable.Range(1, 9).ToList();
+            var result = expected.Except(actual);
 
-            if (actual.Except(expected).Any())
+            if (result.Any())
             {
-                throw new InvalidOperationException($"Invalid solution! {segment} = {i}");
+                throw new InvalidOperationException($"Invalid solution! {segment} {i}, missing value: {result.First()}");
             };
         }
 
@@ -181,8 +166,6 @@ namespace SudokuSolver
         private bool CheckTwoOptionsWithinBlockGroups()
         {
             // There are six 'block groups'; three horizontal and three vertical;
-            // First horizontal block group: block 1, block 2 and block 3
-            // Last vertical block group: block 3, block 6 and block 9
             // For each block group check the following for values 1-9 (example: horizontal): 
             // Check if a value will only fit in the same TWO rows regarding two blocks.
             // If so then the OTHER row w.r. to the OTHER block cannot contain that value.
@@ -255,6 +238,8 @@ namespace SudokuSolver
 
         private bool CheckValueCanFitInTwoRowsInTwoBlocksOnly(int value, List<BlockData> blockData)
         {
+            var candidatesRemoved = false;
+
             var counts = blockData.Select(r => r.RowsContainingValue.Count());
             if (!(counts.Count(c => c == 2) == 2 && counts.Contains(3)))
                 return false;
@@ -265,15 +250,20 @@ namespace SudokuSolver
             var resultThreeRows = blockData.Where(r => r.RowsContainingValue.Count() == 3).First();
             var rowsThree = resultThreeRows.RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct();
 
-            // Remove candidates from the block from the 'other' row.
-            var targetRow = rowsThree.Except(rowsTwo).First();
-            var targetFields = resultThreeRows.Block.Where(f => f.Row == targetRow);
-
-            return RemoveValueFromTargetFieldsCandidates(value, targetFields);
+            // Remove candidates from the block regarding the rowsTwo rows
+            foreach (var row in rowsTwo)
+            {
+                var targetFields = resultThreeRows.Block.Where(f => f.Row == row);
+                if (RemoveValueFromTargetFieldsCandidates(value, targetFields))
+                    candidatesRemoved = true;
+            }
+            return candidatesRemoved;
         }
 
         private static bool CheckValueCanFitInTwoColumnsInTwoBlocksOnly(int value, List<BlockData> blockData)
         {
+            var candidatesRemoved = false;
+
             var counts = blockData.Select(r => r.ColumnsContainingValue.Count());
             if (!(counts.Count(c => c == 2) == 2 && counts.Contains(3)))
                 return false;
@@ -284,11 +274,14 @@ namespace SudokuSolver
             var resultThreeColumns = blockData.Where(r => r.ColumnsContainingValue.Count() == 3).First();
             var columnsThree = resultThreeColumns.ColumnsContainingValue.SelectMany(g => g).Select(f => f.Column).Distinct();
 
-            // Remove candidates from the block from the 'other' column.
-            var targetColumn = columnsThree.Except(columnsTwo).First();
-            var targetFields = resultThreeColumns.Block.Where(f => f.Column == targetColumn);
-
-            return RemoveValueFromTargetFieldsCandidates(value, targetFields);
+            // Remove candidates from the block regarding the columnsTwo columns
+            foreach (var column in columnsTwo)
+            {
+                var targetFields = resultThreeColumns.Block.Where(f => f.Column == column);
+                if (RemoveValueFromTargetFieldsCandidates(value, targetFields))
+                    candidatesRemoved = true;
+            }
+            return candidatesRemoved;
         }
 
         private static bool RemoveValueFromTargetFieldsCandidates(int value, IEnumerable<Field> targetFields)
@@ -398,7 +391,6 @@ namespace SudokuSolver
 
         private static bool CheckFieldsWithSimilarCandidates(IEnumerable<Field> fields, string segment, int candidateCount)
         {
-            var combinations = new List<ValueCombination>();
             bool candidateRemoved = false;
 
             // Generate candidate combinations based on the input candidateCount
@@ -473,6 +465,24 @@ namespace SudokuSolver
             }
         }
 
+        private void CheckValiditySolution()
+        {
+
+            List<int> actual;
+
+            for (int i = 1; i <= 9; i++)
+            {
+                actual = _fields.Where(f => f.Row == i).Select(f => (int)f.Value).ToList();
+                CheckValidity(actual, i, "Row");
+
+                actual = _fields.Where(f => f.Column == i).Select(f => (int)f.Value).ToList();
+                CheckValidity(actual, i, "Column");
+
+                actual = _fields.Where(f => f.Block == i).Select(f => (int)f.Value).ToList();
+                CheckValidity(actual, i, "Block");
+            }
+        }
+
         public override string ToString()
         {
             var output = string.Empty;
@@ -494,28 +504,6 @@ namespace SudokuSolver
             output += "+-----------+";
 
             return output;
-        }
-
-        public string ToString2()
-        {
-            var output = string.Empty;
-
-            for (int row = 0; row < 9; row++)
-            {
-                for (int col = 0; col < 9; col++)
-                {
-                    output += _fields2D[row, col].Value == null ? " " : _fields2D[row, col].Value.ToString();
-                    // or output += $"{_fields2D[row, col]}\r\n";
-                }
-                output += "\r\n";
-            }
-            return output;
-        }
-
-        private class ValueCombination
-        {
-            public List<int> Values { get; set; }
-            public List<Field> Fields { get; set; }
         }
 
         private class BlockData
