@@ -40,20 +40,21 @@ namespace SudokuSolver
                 if ( solutionsCount == _fields.Count )
                     break;
 
-                foundSolutionsBySlashing = FindSolutionsBySlashing();
-                foundSolutionsByElimination = FindSolutionsByElimination();                
+                foundSolutionsBySlashing = CheckSolutionsBySlashing();
+                foundSolutionsByElimination = CheckSolutionsByElimination();                
 
                 if (!foundSolutionsBySlashing && !foundSolutionsByElimination)
                 {
                     // Complexity > 4 star puzzles. Time to bring out the big guns!
                     removedCandidates = false;
 
-                    if (TryToRemoveCandidatesInOutsideBlocks())
-                    {
-                        removedCandidates = true;
-                        FindSolutionByResolvingSingleCandidate();
-                        FindSolutionBasedOnOtherSegments();
-                    }
+                    // TODO later aanzetten
+                    //if (CheckRemoveCandidatesInOutsideBlocks())
+                    //{
+                    //    removedCandidates = true;
+                    //    FindSolutionByResolvingSingleCandidate();
+                    //    FindSolutionBasedOnOtherSegments();
+                    //}
 
                     if (CheckTwoOptionsWithinBlockGroups())
                     {
@@ -89,23 +90,25 @@ namespace SudokuSolver
             return solved;
         }
 
-        private void CheckValidity(List<int> actual, int i, string segment)
-        {
-            var expected = Enumerable.Range(1, 9).ToList();
-            var result = expected.Except(actual);
-
-            if (result.Any())
-            {
-                throw new InvalidOperationException($"Invalid solution! {segment} {i}, missing value: {result.First()} iteration {iteration}");
-            };
-        }
-
         // Per value remove candidates from other fields within the same segment (row, column or block).
         // Solution is found by asserting that all other fields do not contain the value as a candidate in any segment.
-        private bool FindSolutionsBySlashing()
+        private bool CheckSolutionsBySlashing()
         {
             TryToRemoveCandidatesBySlashing();
             return FindSolutionBasedOnOtherSegments();
+        }
+
+        private void TryToRemoveCandidatesBySlashing()
+        {
+            foreach (var field in _fields)
+            {
+                if (field.Value != null)
+                {
+                    field.OtherRowFields(_fields).RemoveValueFromCandidates((int)field.Value);
+                    field.OtherColumnFields(_fields).RemoveValueFromCandidates((int)field.Value);
+                    field.OtherBlockFields(_fields).RemoveValueFromCandidates((int)field.Value);
+                }
+            }
         }
 
         private bool FindSolutionBasedOnOtherSegments()
@@ -122,6 +125,13 @@ namespace SudokuSolver
                             !field.OtherColumnFields(_fields).CandidatesContainsValue(value) ||
                             !field.OtherBlockFields(_fields).CandidatesContainsValue(value))
                         {
+                            if (!field.Candidates.Contains(value))
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine(this);
+                                throw new ArgumentException($"Value not found in candidates: {field}");
+                            }
+
                             field.Value = value;
                             field.Candidates = [value];
                             solutionsFound = true;
@@ -132,41 +142,12 @@ namespace SudokuSolver
             return solutionsFound;
         }
 
-        private void TryToRemoveCandidatesBySlashing()
-        {
-            foreach (var field in _fields)
-            {
-                if (field.Value != null)
-                {
-                    field.OtherRowFields(_fields).RemoveValueFromCandidates((int)field.Value);
-                    field.OtherColumnFields(_fields).RemoveValueFromCandidates((int)field.Value);
-                    field.OtherBlockFields(_fields).RemoveValueFromCandidates((int)field.Value);
-                }
-            }
-        }
-
         // Per field remove candidates in other fields within the same segment (row, column or block).
         // Solution is found by asserting that only one candidate is left.
-        private bool FindSolutionsByElimination()
+        private bool CheckSolutionsByElimination()
         {
             TryToRemoveCandidatesByElmination();
             return FindSolutionByResolvingSingleCandidate();
-        }
-
-        private bool FindSolutionByResolvingSingleCandidate()
-        {
-            bool solutionsFound = false;
-
-            foreach (var field in _fields.Where(f => f.Candidates.Count == 1))
-            {
-                if (field.Value == null)
-                {
-                    field.Value = field.Candidates[0];
-                    solutionsFound = true;
-                }
-            }
-
-            return solutionsFound;
         }
 
         private void TryToRemoveCandidatesByElmination()
@@ -188,6 +169,30 @@ namespace SudokuSolver
                     }
                 }
             }
+        }
+
+        private bool FindSolutionByResolvingSingleCandidate()
+        {
+            bool solutionsFound = false;
+
+            foreach (var field in _fields.Where(f => f.Candidates.Count == 1))
+            {
+                if (field.Value == null)
+                {
+                    if (field.OtherRowFields(_fields).ContainsValue(field.Candidates[0]) ||
+                        field.OtherColumnFields(_fields).ContainsValue(field.Candidates[0]) ||
+                        field.OtherBlockFields(_fields).ContainsValue(field.Candidates[0]))
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine(this);
+                        throw new ArgumentException($"Invalid single candidate: {field.Candidates[0]}! Field: {field}");
+                    }
+
+                    field.Value = field.Candidates[0];
+                    solutionsFound = true;
+                }
+            }
+            return solutionsFound;
         }
 
         private bool CheckTwoOptionsWithinBlockGroups()
@@ -368,7 +373,7 @@ namespace SudokuSolver
         
         // Per block try to find situations where a value can only exist in one row or column (e.g. two fields in block 2 on the same row where only a 7 can go).
         // In those cases eliminate 7 as a candidate of fields on that row in the other horizontal blocks (= block 1 and 3) and see what happens.
-        private bool TryToRemoveCandidatesInOutsideBlocks()
+        private bool CheckRemoveCandidatesInOutsideBlocks()
         {
             var removedCandidate = false;
 
@@ -511,6 +516,33 @@ namespace SudokuSolver
                 CheckValidity(actual, i, "Block");
             }
         }
+
+        private void CheckValidity(List<int> actual, int i, string segment)
+        {
+            var expected = Enumerable.Range(1, 9).ToList();
+            var result = expected.Except(actual);
+
+            if (result.Any())
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(this);
+                throw new InvalidOperationException($"Invalid solution! {segment} {i}, missing value: {result.First()} iteration {iteration}");
+            };
+        }
+
+        public void PrintCandidatesPerField()
+        {
+            Console.WriteLine("################# DUMP START ###################");
+            for (int row = 0; row < 9; row++)
+            {
+                for (int col = 0; col < 9; col++)
+                {
+                    Console.WriteLine(_fields2D[row, col]);
+                }
+            }
+            Console.WriteLine("################## DUMP END ####################");
+        }
+
 
         public override string ToString()
         {

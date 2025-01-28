@@ -1,4 +1,6 @@
-﻿namespace SudokuSolver.Extensions
+﻿using Microsoft.VisualBasic;
+
+namespace SudokuSolver.Extensions
 {
     internal static class FieldExtensions
     {
@@ -27,24 +29,24 @@
             return fields.ToList().Any(x => x.Candidates.Contains(value));
         }
 
-        public static void RemoveValueFromCandidates(this Field field, int value)
-        {
-            if (field.Candidates.Contains(value))
-            {
-                var remove = field.Candidates.Single(c => c == value);
-                field.Candidates.Remove(remove);
-            }
-        }
-
         public static void RemoveValueFromCandidates(this IEnumerable<Field> fields, int value)
         {
             foreach (var field in fields)
             {
-                if (field.Candidates.Contains(value))
-                {
-                    var remove = field.Candidates.Single(c => c == value);
-                    field.Candidates.Remove(remove);
-                }
+                RemoveValueFromCandidates(field, value);
+            }
+        }
+
+        public static void RemoveValueFromCandidates(this Field field, int value)
+        {
+            if (field.Candidates.Contains(value))
+            {
+                // TODO lw
+                if (field.Row == 7 && field.Column == 2)
+                    Console.WriteLine(field);
+
+                var remove = field.Candidates.Single(c => c == value);
+                field.Candidates.Remove(remove);
             }
         }
     }
