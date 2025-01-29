@@ -6,7 +6,10 @@ namespace SudokuSolver
     {
         private readonly Field[,] _fields2D;
         private readonly List<Field> _fields = [];
+
+        // TODO lw beide
         private int iteration = 0;
+        private bool printRemoveCandidateAndAddSolution = false;
 
         public Sudoku()
         {
@@ -45,30 +48,31 @@ namespace SudokuSolver
 
                 if (!foundSolutionsBySlashing && !foundSolutionsByElimination)
                 {
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine("Enter advanced algoritms");
+                    Console.ForegroundColor = ConsoleColor.White;
+
+                    //PrintCandidatesPerField();
+
+                    printRemoveCandidateAndAddSolution = true;
+
                     // Complexity > 4 star puzzles. Time to bring out the big guns!
                     removedCandidates = false;
 
-                    // TODO later aanzetten
-                    //if (CheckRemoveCandidatesInOutsideBlocks())
-                    //{
-                    //    removedCandidates = true;
-                    //    FindSolutionByResolvingSingleCandidate();
-                    //    FindSolutionBasedOnOtherSegments();
-                    //}
-
-                    if (CheckTwoOptionsWithinBlockGroups())
-                    {
+                    if (CheckRemoveCandidatesInOutsideBlocks())
                         removedCandidates = true;
-                        FindSolutionByResolvingSingleCandidate();
-                        FindSolutionBasedOnOtherSegments();
-                    }
 
-                    if (CheckFieldsWithSimilarCandidates())
-                    {
-                        removedCandidates = true;
-                        FindSolutionByResolvingSingleCandidate();
-                        FindSolutionBasedOnOtherSegments();
-                    }
+                    if(!removedCandidates)
+                        if (CheckTwoOptionsWithinBlockGroups())
+                            removedCandidates = true;
+
+                    if (!removedCandidates)
+                        if (CheckFieldsWithSimilarCandidates())
+                            removedCandidates = true;
+
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine("Exit advanced algoritms");
+                    Console.ForegroundColor = ConsoleColor.White;
                 }
             }
 
@@ -130,11 +134,19 @@ namespace SudokuSolver
                                 Console.ForegroundColor = ConsoleColor.Red;
                                 Console.WriteLine(this);
                                 throw new ArgumentException($"Value not found in candidates: {field}");
-                            }
+                            }                            
 
                             field.Value = value;
                             field.Candidates = [value];
                             solutionsFound = true;
+
+                            // TODO lw
+                            if (printRemoveCandidateAndAddSolution)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.WriteLine($"Found solution (1): {field}");
+                                Console.ForegroundColor = ConsoleColor.White;
+                            }
                         }
                     }
                 }
@@ -190,6 +202,14 @@ namespace SudokuSolver
 
                     field.Value = field.Candidates[0];
                     solutionsFound = true;
+
+
+                    if (printRemoveCandidateAndAddSolution)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine($"Found solution (2): {field}");
+                        Console.ForegroundColor = ConsoleColor.White;
+                    }
                 }
             }
             return solutionsFound;
@@ -278,9 +298,20 @@ namespace SudokuSolver
             if (!(counts.Count(c => c == 2) == 2 && counts.Contains(3)))
                 return false;
 
+            // TODO lw
+            if (iteration == 5 && value == 3)
+                candidatesRemoved = false;
+
+            // Check if the two rows where the value can fit are identical for both
+            var resultsTwoRows = blockData.Where(r => r.RowsContainingValue.Count() == 2).ToList();
+            var rowsTwoFirst = resultsTwoRows[0].RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct().ToList();
+            var rowsTwoSecond = resultsTwoRows[1].RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct().ToList();
+
+            if (!(rowsTwoFirst[0] == rowsTwoSecond[0] && rowsTwoFirst[1] == rowsTwoSecond[1]))
+                return false;
+
             // Resolve the row id's of the block where the value will fit in all three rows. 
-            var resultTwoRows = blockData.Where(r => r.RowsContainingValue.Count() == 2).First();
-            var rowsTwo = resultTwoRows.RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct();
+            var rowsTwo = resultsTwoRows[0].RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct();
             var resultThreeRows = blockData.Where(r => r.RowsContainingValue.Count() == 3).First();
             var rowsThree = resultThreeRows.RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct();
 
@@ -300,6 +331,14 @@ namespace SudokuSolver
 
             var counts = blockData.Select(r => r.ColumnsContainingValue.Count());
             if (!(counts.Count(c => c == 2) == 2 && counts.Contains(3)))
+                return false;
+
+            // Check if the two columns where the value can fit are identical for both
+            var resultsTwoColumns = blockData.Where(r => r.ColumnsContainingValue.Count() == 2).ToList();
+            var columnsTwoFirst = resultsTwoColumns[0].ColumnsContainingValue.SelectMany(g => g).Select(f => f.Column).Distinct().ToList();
+            var columnsTwoSecond = resultsTwoColumns[1].ColumnsContainingValue.SelectMany(g => g).Select(f => f.Column).Distinct().ToList();
+
+            if (!(columnsTwoFirst[0] == columnsTwoSecond[0] && columnsTwoFirst[1] == columnsTwoSecond[1]))
                 return false;
 
             // Resolve the column id's of the block where the value will fit in all three columns. 
@@ -485,6 +524,8 @@ namespace SudokuSolver
         // Initialize the puzzle
         private void Initialize(string[] data)
         {
+            Console.ForegroundColor = ConsoleColor.White;
+
             for (int row = 0; row < 9; row++)
             {
                 for (int col = 0; col < 9; col++)
