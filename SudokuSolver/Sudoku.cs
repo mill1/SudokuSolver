@@ -59,15 +59,18 @@ namespace SudokuSolver
                     // Complexity > 4 star puzzles. Time to bring out the big guns!
                     removedCandidates = false;
 
-                    if (CheckRemoveCandidatesInOutsideBlocks())
+                    if (CheckClothedCandidatesToStrip())
                         removedCandidates = true;
 
+                    if (CheckNakedCombinations())
+                        removedCandidates = true;   
+                    
                     if(!removedCandidates)
-                        if (CheckTwoOptionsWithinBlockGroups())
+                        if (CheckAdvancedSlashing())
                             removedCandidates = true;
 
                     if (!removedCandidates)
-                        if (CheckFieldsWithSimilarCandidates())
+                        if (CheckTwoOptionsWithinBlockGroups())
                             removedCandidates = true;
 
                     Console.ForegroundColor = ConsoleColor.Cyan;
@@ -298,10 +301,6 @@ namespace SudokuSolver
             if (!(counts.Count(c => c == 2) == 2 && counts.Contains(3)))
                 return false;
 
-            // TODO lw
-            if (iteration == 5 && value == 3)
-                candidatesRemoved = false;
-
             // Check if the two rows where the value can fit are identical for both
             var resultsTwoRows = blockData.Where(r => r.RowsContainingValue.Count() == 2).ToList();
             var rowsTwoFirst = resultsTwoRows[0].RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct().ToList();
@@ -381,38 +380,156 @@ namespace SudokuSolver
             return block.Where(f => f.Candidates.Contains(value)).GroupBy(f => f.Column);
         }
 
-        private bool CheckFieldsWithSimilarCandidates()
+        // Identify situations where, regarding a segment, two fields contain only two different possible values (or three in the case of three fields, etc.)
+        // For example, in block 1, fields 1 and 3 contain candidates with the possible values 4 and 8.
+        // Block 1, field 1; Candidates: 4 5 7 8
+        // Block 1, field 3; Candidates: 4 5 8
+        // In such cases, remove the other candidates (5 and 7) from fields 1 and 3. This applies to all segments ( blocks, rows, and columns).
+        private bool CheckClothedCandidatesToStrip()
         {            
-            // Identify situations where, regarding a segment, two fields contain only two different possible values (or three in the case of three fields, etc.)
-            // For example, in block 1, fields 1 and 3 contain candidates with the possible values 4 and 8.
-            // Block 1, field 1; Candidates: 4 5 7 8
-            // Block 1, field 3; Candidates: 4 5 8
-            // In such cases, remove the other candidates (5 and 7) from fields 1 and 3.
-            // This applies to blocks, rows, and columns.
-
-            bool removedCandidates3 = false;
+            bool removedCandidates = false;
 
             for (int candidateCount = 2; candidateCount <= 4; candidateCount++)
             {
                 for (int i = 1; i <= 9; i++)
                 {
                     if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Block == i), "Block", candidateCount))
-                        removedCandidates3 = true;
+                        removedCandidates = true;
 
                     if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Row == i), "Row", candidateCount))
-                        removedCandidates3 = true;
+                        removedCandidates = true;
 
                     if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Column == i), "Column", candidateCount))
-                        removedCandidates3 = true;
+                        removedCandidates = true;
                 }
             }
 
-            return removedCandidates3;
+            return removedCandidates;
         }
-        
+
+        // Try to look 'naked pairs'; if in a segment two field contain the same two candidates then those values can only go in those two fields.
+        // As a consequence those candidates maybe stripped from the other fields in that segment (row, column or block)
+        private bool CheckNakedCombinations()
+        {
+            bool removedCandidates = false;
+
+            IEnumerable<Field> fields;
+
+            for (int i = 1; i <= 9; i++)
+            {
+                fields = _fields.Where(f => f.Block == i);
+                if (CheckNakedPairs(fields) || CheckNakedTriplets(fields))
+                    removedCandidates = true;
+
+                fields = _fields.Where(f => f.Row == i);
+                if (CheckNakedPairs(fields) || CheckNakedTriplets(fields))
+                    removedCandidates = true;
+
+                fields = _fields.Where(f => f.Column == i);
+                if (CheckNakedPairs(fields) || CheckNakedTriplets(fields))
+                    removedCandidates = true;
+            }
+
+            return removedCandidates;
+        }
+
+        private bool CheckNakedPairs(IEnumerable<Field> fields)
+        {
+            bool candidateRemoved = false;
+
+            // Generate candidate combinations based on the input candidateCount
+            var candidateNumbers = Enumerable.Range(1, 9).ToList();
+            var candidateCombinations = GetCombinations(candidateNumbers, 2);
+
+            var fieldsWithTwoCandidates = fields.Where(f => f.Candidates.Count == 2);
+            if (fieldsWithTwoCandidates.Count() < 2)            
+                return false;
+
+            foreach (var combination in candidateCombinations)
+            {
+                var fieldsWithTwoIdenticalCandidates = fieldsWithTwoCandidates.Where(f => f.Candidates[0] == combination[0] && f.Candidates[1] == combination[1]).ToList();
+
+                if(fieldsWithTwoIdenticalCandidates.Count() == 2)
+                {
+                    // Remove the two candidates from the other fields in the segement
+                    var otherFields = fields.Except(fieldsWithTwoIdenticalCandidates);
+
+                    foreach (int candidate in combination)
+                    {
+                        int candidatesCountBefore = GetSumOfCandidatesCounts(otherFields);
+                        otherFields.RemoveValueFromCandidates(candidate);
+                        int candidatesCountAfter = GetSumOfCandidatesCounts(otherFields);
+
+                        if (!candidateRemoved)
+                        {
+                            candidateRemoved = candidatesCountBefore != candidatesCountAfter;
+
+                            // TODO lw
+                            if (candidateRemoved)
+                            {   // works                       
+                                Console.WriteLine($"Naked pair ; removed cand. f1: {fieldsWithTwoIdenticalCandidates[0]} f2: {fieldsWithTwoIdenticalCandidates[1]}");
+                            }
+                        }                            
+                    }
+                    break;
+                }
+            }
+            return candidateRemoved;
+        }
+
+        private bool CheckNakedTriplets(IEnumerable<Field> fields)
+        {
+            bool candidateRemoved = false;
+
+            // Generate candidate combinations based on the input candidateCount
+            var candidateNumbers = Enumerable.Range(1, 9).ToList();
+            var candidateCombinations = GetCombinations(candidateNumbers, 3);
+
+            var fieldsWithTwoCandidates = fields.Where(f => f.Candidates.Count == 2); // 2 is correct
+            if (fieldsWithTwoCandidates.Count() < 3)
+                return false;
+
+            foreach (var combination in candidateCombinations)
+            {
+                var fieldsWithFirstNakedTriplet = fieldsWithTwoCandidates.Where(f =>  f.Candidates[0] == combination[0] && f.Candidates[1] == combination[1]);
+                var fieldsWithSecondNakedTriplet = fieldsWithTwoCandidates.Where(f => f.Candidates[0] == combination[0] && f.Candidates[1] == combination[2]);
+                var fieldsWithThirdNakedTriplet = fieldsWithTwoCandidates.Where(f =>  f.Candidates[0] == combination[1] && f.Candidates[1] == combination[2]);
+
+                if (!(fieldsWithFirstNakedTriplet.Any() && fieldsWithSecondNakedTriplet.Any() && fieldsWithThirdNakedTriplet.Any()))
+                    continue;
+
+                if (!(fieldsWithFirstNakedTriplet.Count() == 1 && fieldsWithSecondNakedTriplet.Count() == 1 && fieldsWithThirdNakedTriplet.Count() == 1))
+                    continue;
+
+                // Remove the three candidates from the other fields in the segement
+                var otherFields = fields.Except(fieldsWithFirstNakedTriplet)
+                                        .Except(fieldsWithSecondNakedTriplet)
+                                        .Except(fieldsWithThirdNakedTriplet);
+
+                foreach (int candidate in combination)
+                {
+                    int candidatesCountBefore = GetSumOfCandidatesCounts(otherFields);
+                    otherFields.RemoveValueFromCandidates(candidate);
+                    int candidatesCountAfter = GetSumOfCandidatesCounts(otherFields);
+
+                    if (!candidateRemoved)
+                    {
+                        candidateRemoved = candidatesCountBefore != candidatesCountAfter;
+
+                        // TODO lw
+                        if (candidateRemoved)
+                        {   // works                       
+                            Console.WriteLine($"Naked triple ; removed cand. f1: {fieldsWithFirstNakedTriplet.First()} f2: {fieldsWithSecondNakedTriplet.First()} f3: {fieldsWithThirdNakedTriplet.First()}");
+                        }
+                    }
+                }
+            }
+            return candidateRemoved;
+        }
+
         // Per block try to find situations where a value can only exist in one row or column (e.g. two fields in block 2 on the same row where only a 7 can go).
         // In those cases eliminate 7 as a candidate of fields on that row in the other horizontal blocks (= block 1 and 3) and see what happens.
-        private bool CheckRemoveCandidatesInOutsideBlocks()
+        private bool CheckAdvancedSlashing()
         {
             var removedCandidate = false;
 
@@ -571,17 +688,32 @@ namespace SudokuSolver
             };
         }
 
-        public void PrintCandidatesPerField()
+        public void PrintCandidatesPerField(bool perRow)
         {
-            Console.WriteLine("################# DUMP START ###################");
-            for (int row = 0; row < 9; row++)
+            Console.WriteLine("################# PRINT START ###################");
+
+            if (perRow)
+            {
+                for (int row = 0; row < 9; row++)
+                {
+                    for (int col = 0; col < 9; col++)
+                    {
+                        Console.WriteLine(_fields2D[row, col]);
+                    }
+                }
+            }
+            else
             {
                 for (int col = 0; col < 9; col++)
                 {
-                    Console.WriteLine(_fields2D[row, col]);
+                    for (int row = 0; row < 9; row++)
+                    {
+                        Console.WriteLine(_fields2D[row, col]);
+                    }
                 }
             }
-            Console.WriteLine("################## DUMP END ####################");
+
+            Console.WriteLine("################## PRINT END ####################");
         }
 
 
