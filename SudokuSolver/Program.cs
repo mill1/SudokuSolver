@@ -60,8 +60,7 @@
                 "3 52  4 8",
             ];
 
-            // https://www.sudoku9x9.com/expert/
-            // 5 star page 0
+            // https://www.sudoku9x9.com/expert/            
             string[] dataA =
             [
                 "      3 9",
@@ -75,7 +74,22 @@
                 "4  3   1 ",
             ];
 
-            new Sudoku().Solve(dataA);
+            // https://www.livesudoku.com/en/sudoku/evil/
+
+            string[] dataB =
+            [
+                " 8     5 ",
+                "    3   8",
+                "  491   2",
+                "23  7 1  ",
+                "4  6  2 5",
+                " 7      6",
+                "  81 6  9",
+                "941      ",
+                "         ",
+            ];
+
+            new Sudoku().Solve(dataB);
         }
     }
 }
