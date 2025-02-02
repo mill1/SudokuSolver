@@ -3,6 +3,7 @@ using System.Linq;
 
 namespace SudokuSolver
 {
+    // Testen met examples in 'Diabolical Strategies' en 'Extreme Strategies': https://www.sudokuwiki.org/Finned_Swordfish, https://www.sudokuwiki.org/AIC_with_ALSs etc.
     public class Sudoku
     {
         private readonly Field[,] _fields2D;
@@ -79,7 +80,11 @@ namespace SudokuSolver
                             candidatesRemoved = true;
 
                     if (!candidatesRemoved)
-                        if(CheckXWingSituations())
+                        if(CheckXWingRows() || CheckXWingColumns())
+                            candidatesRemoved = true;
+
+                    if (!candidatesRemoved)
+                        if (CheckYWing())
                             candidatesRemoved = true;
 
                     // TODO lw
@@ -105,8 +110,8 @@ namespace SudokuSolver
             Console.WriteLine(this);
 
             return solved;
-        }
-        
+        }        
+
         // Per value remove candidates from other fields within the same segment (row, column or block).
         // Solution is found by asserting that all other fields do not contain the value as a candidate in any segment.
         private bool CheckSolutionsBySlashing()
@@ -403,13 +408,13 @@ namespace SudokuSolver
             {
                 for (int i = 1; i <= 9; i++)
                 {
-                    if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Block == i), "Block", candidateCount))
+                    if (CheckFieldsWithSimilarCandidates(_fields.Blocks(i), "Block", candidateCount))
                         candidatesRemoved = true;
 
-                    if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Row == i), "Row", candidateCount))
+                    if (CheckFieldsWithSimilarCandidates(_fields.Rows(i), "Row", candidateCount))
                         candidatesRemoved = true;
 
-                    if (CheckFieldsWithSimilarCandidates(_fields.Where(f => f.Column == i), "Column", candidateCount))
+                    if (CheckFieldsWithSimilarCandidates(_fields.Columns(i), "Column", candidateCount))
                         candidatesRemoved = true;
                 }
             }
@@ -427,15 +432,15 @@ namespace SudokuSolver
 
             for (int i = 1; i <= 9; i++)
             {
-                fields = _fields.Where(f => f.Block == i);
+                fields = _fields.Blocks(i);
                 if (CheckNakedPairs(fields) || CheckNakedTriplets(fields))
                     candidatesRemoved = true;
 
-                fields = _fields.Where(f => f.Row == i);
+                fields = _fields.Rows(i);
                 if (CheckNakedPairs(fields) || CheckNakedTriplets(fields))
                     candidatesRemoved = true;
 
-                fields = _fields.Where(f => f.Column == i);
+                fields = _fields.Columns(i);
                 if (CheckNakedPairs(fields) || CheckNakedTriplets(fields))
                     candidatesRemoved = true;
             }
@@ -511,7 +516,7 @@ namespace SudokuSolver
 
             for (int i = 1; i <= 9; i++)
             {
-                var block = _fields.Where(f => f.Block == i).ToList();
+                var block = _fields.Blocks(i).ToList();
 
                 // Per block check per row/column if a value can only fit in that row/column and not in 
                 // the field in the outside blocks.
@@ -585,38 +590,70 @@ namespace SudokuSolver
                 .OrderBy(x => x).ToList();
         }
 
-        // Candidate exactly appears twice per row. This happens regarding two rows
-        // If the columns in which the candidate appears are the same for those two rows we have a X-Wing;
-        // Remove that candidate in the other fields of those columns.
-        private bool CheckXWingSituations()
+        // Google: Sudoku X-Wing strategy explained
+        private bool CheckXWingRows()
         {
             var candidatesRemoved = false;
 
             for (int value = 1; value <= 9; value++)
             {
-                var XWingFields = new List<List<Field>>();
+                var xWingFields = new List<List<Field>>();
 
-                for (int row = 1; row <= 9; row++)
+                for (int column = 1; column <= 9; column++)
                 {
-                    // TODO extension method maken + check code hierop
-                    var rowFields = _fields.Where(f => f.Row == row);
-                    var FieldsContainingCandidate = rowFields.Where(f => f.Candidates.Contains(value)).ToList();
+                    var columnFields = _fields.Columns(column);
+                    var FieldsContainingCandidate = columnFields.Where(f => f.Candidates.Contains(value)).ToList();
 
                     if (FieldsContainingCandidate.Count == 2)
-                        XWingFields.Add(FieldsContainingCandidate);
+                        xWingFields.Add(FieldsContainingCandidate);
                 }
 
-                if (XWingFields.Count != 2)
+                if (xWingFields.Count != 2)
                     continue;
 
-                // Occurrence in identical columns regading both rows??
-                if (XWingFields[0][0].Column == XWingFields[1][0].Column && XWingFields[0][1].Column == XWingFields[1][1].Column)
+                // Occurrence in identical rows regading both columns??
+                if (xWingFields[0][0].Row == xWingFields[1][0].Row && xWingFields[0][1].Row == xWingFields[1][1].Row)
                 {
                     for (int i = 0; i <= 1; i++)
                     {
-                        // TODO extension method maken mbt '(f => f.Column ==' en check code hierop
-                        var otherFieldsInColumn = _fields.Where(f => f.Column == XWingFields[0][i].Column).Except(new List<Field> { XWingFields[0][i], XWingFields[1][i]});
+                        var otherFieldsInRow = _fields.Rows(xWingFields[0][i].Row).Except(new List<Field> { xWingFields[0][i], xWingFields[1][i] });
+                        var candidatesWereRemoved = RemoveValueFromCandidates(value, otherFieldsInRow);
 
+                        if (!candidatesRemoved)
+                            candidatesRemoved = candidatesWereRemoved;
+                    }
+                }
+            }
+            return candidatesRemoved;
+        }
+
+        // Google: Sudoku X-Wing strategy explained
+        private bool CheckXWingColumns()
+        {
+            var candidatesRemoved = false;
+
+            for (int value = 1; value <= 9; value++)
+            {
+                var xWingFields = new List<List<Field>>();
+
+                for (int row = 1; row <= 9; row++)
+                {
+                    var rowFields = _fields.Rows(row);
+                    var FieldsContainingCandidate = rowFields.Where(f => f.Candidates.Contains(value)).ToList();
+
+                    if (FieldsContainingCandidate.Count == 2)
+                        xWingFields.Add(FieldsContainingCandidate);
+                }
+
+                if (xWingFields.Count != 2)
+                    continue;
+
+                // Occurrence in identical columns regading both rows??
+                if (xWingFields[0][0].Column == xWingFields[1][0].Column && xWingFields[0][1].Column == xWingFields[1][1].Column)
+                {
+                    for (int i = 0; i <= 1; i++)
+                    {
+                        var otherFieldsInColumn = _fields.Columns(xWingFields[0][i].Column).Except(new List<Field> {xWingFields[0][i], xWingFields[1][i]});
                         var candidatesWereRemoved = RemoveValueFromCandidates(value, otherFieldsInColumn);
 
                         if (!candidatesRemoved)
@@ -624,8 +661,13 @@ namespace SudokuSolver
                     }
                 }
             }
-
             return candidatesRemoved;
+        }
+
+        // Google: Sudoku Y-Wing strategy explained
+        private bool CheckYWing()
+        {
+            throw new NotImplementedException();
         }
 
 
@@ -639,7 +681,7 @@ namespace SudokuSolver
             {
                 for (int value = 1; value <= 9; value++)
                 {
-                    var fieldsInBlockWithValueInCandidates = _fields.Where(f => f.Block == block && f.Candidates.Contains(value)).ToList();
+                    var fieldsInBlockWithValueInCandidates = _fields.Blocks(block).Where(f => f.Candidates.Contains(value)).ToList();
 
                     if (fieldsInBlockWithValueInCandidates.Count <= 3)
                     {
@@ -668,17 +710,13 @@ namespace SudokuSolver
 
         private bool RemoveCandidatesOutsideBlock(int block, int value, List<Field> fieldsInBlockWithValueInCandidates, bool isRow)
         {
-            var eliminatedOptionsFound = false;
+            IEnumerable<Field> fieldsOutsideBlock = _fields.Where(f => f.Block != block);
 
-            var fieldsOutsideBlock = _fields.Where(f => f.Block != block);
             fieldsOutsideBlock = isRow ?
-                fieldsOutsideBlock.Where(f => f.Row == fieldsInBlockWithValueInCandidates[0].Row) :
-                fieldsOutsideBlock.Where(f => f.Column == fieldsInBlockWithValueInCandidates[0].Column);
+                fieldsOutsideBlock.Rows(fieldsInBlockWithValueInCandidates[0].Row) :
+                fieldsOutsideBlock.Columns(fieldsInBlockWithValueInCandidates[0].Column);
 
-            eliminatedOptionsFound = fieldsOutsideBlock.CandidatesContainsValue(value);
-
-            fieldsOutsideBlock.RemoveValueFromCandidates(value);
-            return eliminatedOptionsFound;
+            return RemoveValueFromCandidates(value, fieldsOutsideBlock);
         }
 
         private static bool CheckFieldsWithSimilarCandidates(IEnumerable<Field> fields, string segment, int candidateCount)
@@ -786,13 +824,13 @@ namespace SudokuSolver
 
             for (int i = 1; i <= 9; i++)
             {
-                actual = _fields.Where(f => f.Row == i).Select(f => (int)f.Value).ToList();
+                actual = _fields.Rows(i).Select(f => (int)f.Value).ToList();
                 CheckValidity(actual, i, "Row");
 
-                actual = _fields.Where(f => f.Column == i).Select(f => (int)f.Value).ToList();
+                actual = _fields.Columns(i).Select(f => (int)f.Value).ToList();
                 CheckValidity(actual, i, "Column");
 
-                actual = _fields.Where(f => f.Block == i).Select(f => (int)f.Value).ToList();
+                actual = _fields.Blocks(i).Select(f => (int)f.Value).ToList();
                 CheckValidity(actual, i, "Block");
             }
         }

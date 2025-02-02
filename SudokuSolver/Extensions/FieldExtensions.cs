@@ -4,6 +4,21 @@ namespace SudokuSolver.Extensions
 {
     internal static class FieldExtensions
     {
+        public static IEnumerable<Field> Rows(this IEnumerable<Field> fields, int row)
+        {
+            return fields.Where(f => f.Row == row);
+        }
+
+        public static IEnumerable<Field> Columns(this IEnumerable<Field> fields, int column)
+        {
+            return fields.Where(f => f.Column == column);
+        }
+
+        public static IEnumerable<Field> Blocks(this IEnumerable<Field> fields, int block)
+        {
+            return fields.Where(f => f.Block == block);
+        }
+
         public static IEnumerable<Field> OtherRowFields(this Field field, List<Field> fields)
         {
             return fields.Where(f => f.Row == field.Row && f.Column != field.Column);

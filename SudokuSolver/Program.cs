@@ -60,8 +60,11 @@
                 "3 52  4 8",
             ];
 
-            // https://www.sudoku9x9.com/expert/            
-            string[] dataA =
+            // https://www.sudoku9x9.com/expert/
+            // Tests:
+            // X-Wing rows
+            // Y-Wing
+            string[] dataA1 =
             [
                 "      3 9",
                 "    4  6 ",
@@ -74,8 +77,21 @@
                 "4  3   1 ",
             ];
 
-            // https://www.livesudoku.com/en/sudoku/evil/
+            // X-Wing rows
+            string[] dataA2 =
+            [
+                "4 8  5   ",
+                "    7    ",
+                "   6 1   ",
+                "3        ",
+                " 9  1 24 ",
+                " 5  846  ",
+                "  6     3",
+                "1    2 6 ",
+                " 7    8 9",
+            ];
 
+            // https://www.livesudoku.com/en/sudoku/evil/            
             string[] dataB =
             [
                 " 8     5 ",
@@ -89,7 +105,7 @@
                 "         ",
             ];
 
-            new Sudoku().Solve(dataB);
+            new Sudoku().Solve(dataA2);
         }
     }
 }
