@@ -19,19 +19,24 @@ namespace SudokuSolver.Extensions
             return fields.Where(f => f.Block == block);
         }
 
-        public static IEnumerable<Field> OtherRowFields(this Field field, List<Field> fields)
+        public static IEnumerable<Field> WithNumberOfCandidates(this IEnumerable<Field> fields, int number)
         {
-            return fields.Where(f => f.Row == field.Row && f.Column != field.Column);
+            return fields.Where(f => f.Candidates.Count == number);
         }
 
-        public static IEnumerable<Field> OtherColumnFields(this Field field, List<Field> fields)
+        public static IEnumerable<Field> OtherRowFields(this Field field)
         {
-            return fields.Where(f => f.Column == field.Column && f.Row != field.Row);
+            return field.Fields.Where(f => f.Row == field.Row && f.Column != field.Column);
         }
 
-        public static IEnumerable<Field> OtherBlockFields(this Field field, List<Field> fields)
+        public static IEnumerable<Field> OtherColumnFields(this Field field)
         {
-            return fields.Where(f => f.Block == field.Block && f != field);
+            return field.Fields.Where(f => f.Column == field.Column && f.Row != field.Row);
+        }
+
+        public static IEnumerable<Field> OtherBlockFields(this Field field)
+        {
+            return field.Fields.Where(f => f.Block == field.Block && f != field);
         }
 
         public static bool ContainsValue(this IEnumerable<Field> fields, int value)

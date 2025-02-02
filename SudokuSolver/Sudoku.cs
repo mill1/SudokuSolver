@@ -21,7 +21,7 @@ namespace SudokuSolver
             for (int row = 0; row < 9; row++)
                 for (int col = 0; col < 9; col++)
                 {
-                    var field = new Field(row + 1, col + 1);
+                    var field = new Field(row + 1, col + 1, _fields);
                     _fields2D[row, col] = field;
                     _fields.Add(field);
                 }
@@ -117,7 +117,7 @@ namespace SudokuSolver
         private bool CheckSolutionsBySlashing()
         {
             TryToRemoveCandidatesBySlashing();
-            return FindSolutionBasedOnOtherSegments();
+            return CheckAbsentValuesInCandidatesOfOtherSegments();
         }
 
         private void TryToRemoveCandidatesBySlashing()
@@ -126,14 +126,14 @@ namespace SudokuSolver
             {
                 if (field.Value != null)
                 {
-                    field.OtherRowFields(_fields).RemoveValueFromCandidates((int)field.Value);
-                    field.OtherColumnFields(_fields).RemoveValueFromCandidates((int)field.Value);
-                    field.OtherBlockFields(_fields).RemoveValueFromCandidates((int)field.Value);
+                    field.OtherRowFields().RemoveValueFromCandidates((int)field.Value);
+                    field.OtherColumnFields().RemoveValueFromCandidates((int)field.Value);
+                    field.OtherBlockFields().RemoveValueFromCandidates((int)field.Value);
                 }
             }
         }
 
-        private bool FindSolutionBasedOnOtherSegments()
+        private bool CheckAbsentValuesInCandidatesOfOtherSegments()
         {
             bool solutionsFound = false;
 
@@ -143,9 +143,9 @@ namespace SudokuSolver
                 {
                     if (field.Value == null)
                     {
-                        if (!field.OtherRowFields(_fields).CandidatesContainsValue(value) ||
-                            !field.OtherColumnFields(_fields).CandidatesContainsValue(value) ||
-                            !field.OtherBlockFields(_fields).CandidatesContainsValue(value))
+                        if (!field.OtherRowFields().CandidatesContainsValue(value) ||
+                            !field.OtherColumnFields().CandidatesContainsValue(value) ||
+                            !field.OtherBlockFields().CandidatesContainsValue(value))
                         {
                             if (!field.Candidates.Contains(value))
                             {
@@ -177,7 +177,7 @@ namespace SudokuSolver
         private bool CheckSolutionsByElimination()
         {
             TryToRemoveCandidatesByElmination();
-            return FindSolutionByResolvingSingleCandidate();
+            return CheckNakedSingles();
         }
 
         private void TryToRemoveCandidatesByElmination()
@@ -188,20 +188,20 @@ namespace SudokuSolver
                 {
                     for (int value = 1; value <= 9; value++)
                     {
-                        if (field.OtherRowFields(_fields).ContainsValue(value))
+                        if (field.OtherRowFields().ContainsValue(value))
                             field.RemoveValueFromCandidates(value);
 
-                        if (field.OtherColumnFields(_fields).ContainsValue(value))
+                        if (field.OtherColumnFields().ContainsValue(value))
                             field.RemoveValueFromCandidates(value);
 
-                        if (field.OtherBlockFields(_fields).ContainsValue(value))
+                        if (field.OtherBlockFields().ContainsValue(value))
                             field.RemoveValueFromCandidates(value);
                     }
                 }
             }
         }
 
-        private bool FindSolutionByResolvingSingleCandidate()
+        private bool CheckNakedSingles()
         {
             bool solutionsFound = false;
 
@@ -209,9 +209,9 @@ namespace SudokuSolver
             {
                 if (field.Value == null)
                 {
-                    if (field.OtherRowFields(_fields).ContainsValue(field.Candidates[0]) ||
-                        field.OtherColumnFields(_fields).ContainsValue(field.Candidates[0]) ||
-                        field.OtherBlockFields(_fields).ContainsValue(field.Candidates[0]))
+                    if (field.OtherRowFields().ContainsValue(field.Candidates[0]) ||
+                        field.OtherColumnFields().ContainsValue(field.Candidates[0]) ||
+                        field.OtherBlockFields().ContainsValue(field.Candidates[0]))
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.WriteLine(this);
@@ -452,9 +452,8 @@ namespace SudokuSolver
         {
             bool candidatesRemoved = false;
 
-            // Generate candidate combinations based on the input candidateCount
-            var candidateNumbers = Enumerable.Range(1, 9).ToList();
-            var candidateCombinations = GetCombinations(candidateNumbers, 2);
+            // Generate candidate combinations
+            var candidateCombinations = GetCombinations(Enumerable.Range(1, 9).ToList(), 2);
 
             var fieldsWithTwoCandidates = fields.Where(f => f.Candidates.Count == 2);
             if (fieldsWithTwoCandidates.Count() < 2)            
@@ -480,8 +479,7 @@ namespace SudokuSolver
             bool candidatesRemoved = false;
 
             // Generate candidate combinations based on the input candidateCount
-            var candidateNumbers = Enumerable.Range(1, 9).ToList();
-            var candidateCombinations = GetCombinations(candidateNumbers, 3);
+            var candidateCombinations = GetCombinations(Enumerable.Range(1, 9).ToList(), 3);
 
             var fieldsWithTwoCandidates = fields.Where(f => f.Candidates.Count == 2); // 2 is correct
             if (fieldsWithTwoCandidates.Count() < 3)
@@ -535,10 +533,10 @@ namespace SudokuSolver
             {
                 // First get the list of values present in the row of the block.
                 var rowFields = _fields.Where(f => f.Block == block[0].Block && f.Row == row).ToList();
-                List<int> rowFieldValues = ResolveValuesBlockFields(rowFields);
+                List<int> rowFieldValues = ResolveAllCandidatesBlockFields(rowFields);
                 // Then get the list of values present in the row outside the block.
                 var otherFields = _fields.Where(f => f.Block != block[0].Block && f.Row == row).ToList();
-                List<int> otherFieldValues = ResolveValuesOtherBlockFields(otherFields);
+                List<int> otherFieldValues = ResolveAllCandidatesOtherBlockFields(otherFields);
 
                 var candidates = rowFieldValues.Except(otherFieldValues).ToList();
                 var otherRowFields = block.Except(rowFields);
@@ -557,10 +555,10 @@ namespace SudokuSolver
             {
                 // First get the list of values present in the column of the block.
                 var columnFields = _fields.Where(f => f.Block == block[0].Block && f.Column == column).ToList();
-                List<int> columnFieldValues = ResolveValuesBlockFields(columnFields);
+                List<int> columnFieldValues = ResolveAllCandidatesBlockFields(columnFields);
                 // Then get the list of values present in the column outside the block.
                 var otherFields = _fields.Where(f => f.Block != block[0].Block && f.Column == column).ToList();
-                List<int> otherFieldValues = ResolveValuesOtherBlockFields(otherFields);
+                List<int> otherFieldValues = ResolveAllCandidatesOtherBlockFields(otherFields);
 
                 var candidates = columnFieldValues.Except(otherFieldValues).ToList();
                 var otherColumnFields = block.Except(columnFields);
@@ -571,23 +569,23 @@ namespace SudokuSolver
             return candidatesRemoved;
         }
 
-        private static List<int> ResolveValuesBlockFields(List<Field> fields)
+        private static List<int> ResolveAllCandidatesBlockFields(List<Field> fields)
         {
-            return fields[0].Candidates
+            return [.. fields[0].Candidates
                 .Union(fields[1].Candidates)
                 .Union(fields[2].Candidates)
-                .OrderBy(x => x).ToList();
+                .OrderBy(x => x)];
         }
 
-        private static List<int> ResolveValuesOtherBlockFields(List<Field> fields)
+        private static List<int> ResolveAllCandidatesOtherBlockFields(List<Field> fields)
         {
-            return fields[0].Candidates
+            return [.. fields[0].Candidates
                 .Union(fields[1].Candidates)
                 .Union(fields[2].Candidates)
                 .Union(fields[3].Candidates)
                 .Union(fields[4].Candidates)
                 .Union(fields[5].Candidates)
-                .OrderBy(x => x).ToList();
+                .OrderBy(x => x)];
         }
 
         // Google: Sudoku X-Wing strategy explained
@@ -664,10 +662,24 @@ namespace SudokuSolver
             return candidatesRemoved;
         }
 
-        // Google: Sudoku Y-Wing strategy explained
+        // Google: Sudoku Y-Wing or XY-Wing strategy explained
         private bool CheckYWing()
         {
-            throw new NotImplementedException();
+            // First try to locate three buddy fields;
+            // xy = 'middle' field. F.i. candidates 1, 5
+            // xz = 'wing 1' field. F.i. candidates 1, 2
+            // yz = 'wing 2' field. F.i. candidates 2, 5
+
+            var fields2CandidatesOk = _fields.WithNumberOfCandidates(2);
+
+            var fields2Candidates = new List<Field>() { _fields2D[1, 1] };
+
+            foreach (Field field in fields2Candidates)
+            {
+                var a = field.OtherRowFields().WithNumberOfCandidates(2);
+            }
+
+            return false;
         }
 
 
@@ -724,8 +736,7 @@ namespace SudokuSolver
             bool candidatesRemoved = false;
 
             // Generate candidate combinations based on the input candidateCount
-            var candidateNumbers = Enumerable.Range(1, 9).ToList();
-            var candidateCombinations = GetCombinations(candidateNumbers, candidateCount);
+            var candidateCombinations = GetCombinations(Enumerable.Range(1, 9).ToList(), candidateCount);
 
             foreach (var combination in candidateCombinations)
             {

@@ -1,12 +1,14 @@
 ﻿namespace SudokuSolver
 {
-    internal class Field(int row, int column)
+    internal class Field(int row, int column, List<Field> fields)
     {
         public int Row { get; } = row;
         public int Column { get; } = column;
         public int Block { get; } = ResolveBlock(row, column);
         public int? Value { get; set; } = null;
         public List<int> Candidates { get; set; } = Enumerable.Range(1, 9).ToList();
+
+        public List<Field> Fields = fields;
 
         private static int ResolveBlock(int row, int column)
         {
