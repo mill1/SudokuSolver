@@ -11,7 +11,7 @@ namespace SudokuSolver
 
         // TODO lw beide
         private int iteration = 0;
-        private bool printRemoveCandidateAndAddSolution = false;
+        private bool printAdvancedStrategies = false;
 
         public Sudoku()
         {
@@ -31,61 +31,39 @@ namespace SudokuSolver
         {
             Initialize(data);
             
-            int solutionsCount = 0;
             bool foundSolutionsBySlashing = true;
             bool foundSolutionsByElimination = false;
             bool candidatesRemoved = false;
 
             while (foundSolutionsBySlashing || foundSolutionsByElimination || candidatesRemoved)
             {
-                iteration++;
-                solutionsCount = _fields.Where(f => f.Value != null).Count();
-                Console.WriteLine($"\nIteration {iteration}, solved: {solutionsCount}"); Console.WriteLine(this);
+                // 'TryStrategyX' means 'try to eliminate candidates by applying strategy X'.
 
-                if ( solutionsCount == _fields.Count )
+                iteration++;                
+                Console.WriteLine($"\nIteration {iteration}, solved: {_fields.Where(f => f.Value != null).Count()}"); Console.WriteLine(this);
+
+                TrySlashing();
+                foundSolutionsBySlashing = CheckAbsentValuesInCandidatesOfSegments();
+
+                TryEliminationByValuesInSegments();
+                foundSolutionsByElimination = CheckNakedSingles(); // return
+
+                if (_fields.Where(f => f.Value != null).Count() == _fields.Count)
                     break;
-
-                foundSolutionsBySlashing = CheckSolutionsBySlashing();
-                foundSolutionsByElimination = CheckSolutionsByElimination();                
 
                 if (!foundSolutionsBySlashing && !foundSolutionsByElimination)
                 {
+                    // Complexity is basic+. Time to apply advanced strategies.!
+
                     Console.ForegroundColor = ConsoleColor.Cyan;
                     Console.WriteLine("Enter advanced algoritms");
                     //PrintCandidatesPerField(false);
                     Console.ForegroundColor = ConsoleColor.White;
 
                     // TODO lw
-                    printRemoveCandidateAndAddSolution = true;
+                    printAdvancedStrategies = true;
 
-                    // Complexity > 4 star puzzles. Time to bring out the big guns!
-                    candidatesRemoved = false;
-
-                    if (CheckClothedCandidatesToStrip())
-                        candidatesRemoved = true;
-
-                    if (CheckNakedCombinations())
-                        candidatesRemoved = true;   
-                    
-                    if(!candidatesRemoved)
-                        if (CheckAdvancedSlashing())
-                            candidatesRemoved = true;
-
-                    if (!candidatesRemoved)
-                        if (CheckTwoOptionsWithinBlockGroups())
-                            candidatesRemoved = true;
-
-                    if (!candidatesRemoved)
-                        if (CheckLockedCandidates())
-                            candidatesRemoved = true;
-
-                    if (!candidatesRemoved)
-                        if(CheckXWingRows() || CheckXWingColumns())
-                            candidatesRemoved = true;
-
-                    if (!candidatesRemoved)
-                        if (CheckYWing())
-                            candidatesRemoved = true;
+                    candidatesRemoved = ApplyAdvancedStrategies();
 
                     // TODO lw
                     Console.ForegroundColor = ConsoleColor.Cyan;
@@ -94,7 +72,7 @@ namespace SudokuSolver
                 }
             }
 
-            var solved = solutionsCount == _fields.Count;
+            var solved = _fields.Where(f => f.Value != null).Count() == _fields.Count;
 
             Console.ForegroundColor = solved ? ConsoleColor.Green : ConsoleColor.Red;
 
@@ -110,20 +88,48 @@ namespace SudokuSolver
             Console.WriteLine(this);
 
             return solved;
-        }        
-
-        // Per value remove candidates from other fields within the same segment (row, column or block).
-        // Solution is found by asserting that all other fields do not contain the value as a candidate in any segment.
-        private bool CheckSolutionsBySlashing()
-        {
-            TryToRemoveCandidatesBySlashing();
-            return CheckAbsentValuesInCandidatesOfOtherSegments();
         }
 
-        private void TryToRemoveCandidatesBySlashing()
+        private bool ApplyAdvancedStrategies()
+        {
+            var candidatesRemoved = false;
+
+            if (TryStripClothedCandidates())
+                candidatesRemoved = true;
+
+            if (TryNakedCombinations())
+                candidatesRemoved = true;
+
+            if (!candidatesRemoved)
+                if (TryAdvancedSlashing())
+                    candidatesRemoved = true;
+
+            if (!candidatesRemoved)
+                if (TryTwoOptionsWithinBlockGroups())
+                    candidatesRemoved = true;
+
+            if (!candidatesRemoved)
+                if (TryLockedCandidates())
+                    candidatesRemoved = true;
+
+            if (!candidatesRemoved)
+                if (TryXWingRows() || TryXWingColumns())
+                    candidatesRemoved = true;
+
+            if (!candidatesRemoved)
+                if (TryYWing())
+                    candidatesRemoved = true;
+            return candidatesRemoved;
+        }
+
+        // Per value try to remove candidates from other fields within the same segment (row, column or block).
+        private void TrySlashing()
         {
             foreach (var field in _fields)
             {
+                // TODO A
+                //void -> var b = RemoveCandidates;
+
                 if (field.Value != null)
                 {
                     field.OtherRowFields().RemoveValueFromCandidates((int)field.Value);
@@ -133,7 +139,8 @@ namespace SudokuSolver
             }
         }
 
-        private bool CheckAbsentValuesInCandidatesOfOtherSegments()
+        // Try to find a solution by asserting that all other fields do not contain the value as a candidate in any segment.
+        private bool CheckAbsentValuesInCandidatesOfSegments()
         {
             bool solutionsFound = false;
 
@@ -147,6 +154,7 @@ namespace SudokuSolver
                             !field.OtherColumnFields().CandidatesContainsValue(value) ||
                             !field.OtherBlockFields().CandidatesContainsValue(value))
                         {
+                            // TODO lw?
                             if (!field.Candidates.Contains(value))
                             {
                                 Console.ForegroundColor = ConsoleColor.Red;
@@ -159,7 +167,7 @@ namespace SudokuSolver
                             solutionsFound = true;
 
                             // TODO lw
-                            if (printRemoveCandidateAndAddSolution)
+                            if (printAdvancedStrategies)
                             {
                                 Console.ForegroundColor = ConsoleColor.Green;
                                 Console.WriteLine($"Found solution (1): {field}");
@@ -172,16 +180,11 @@ namespace SudokuSolver
             return solutionsFound;
         }
 
-        // Per field remove candidates in other fields within the same segment (row, column or block).
-        // Solution is found by asserting that only one candidate is left.
-        private bool CheckSolutionsByElimination()
+        // Per field try to eliminate candidates based on the values in the segments the field is part of.
+        private void TryEliminationByValuesInSegments()
         {
-            TryToRemoveCandidatesByElmination();
-            return CheckNakedSingles();
-        }
+            // TODO A  void -> nr of candid
 
-        private void TryToRemoveCandidatesByElmination()
-        {
             foreach (var field in _fields)
             {
                 if (field.Value == null)
@@ -201,6 +204,7 @@ namespace SudokuSolver
             }
         }
 
+        // Try to find a solution by asserting per field that only one candidate is left.
         private bool CheckNakedSingles()
         {
             bool solutionsFound = false;
@@ -209,6 +213,7 @@ namespace SudokuSolver
             {
                 if (field.Value == null)
                 {
+                    // TODO lw?
                     if (field.OtherRowFields().ContainsValue(field.Candidates[0]) ||
                         field.OtherColumnFields().ContainsValue(field.Candidates[0]) ||
                         field.OtherBlockFields().ContainsValue(field.Candidates[0]))
@@ -222,7 +227,7 @@ namespace SudokuSolver
                     solutionsFound = true;
 
 
-                    if (printRemoveCandidateAndAddSolution)
+                    if (printAdvancedStrategies)
                     {
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine($"Found solution (2): {field}");
@@ -233,7 +238,7 @@ namespace SudokuSolver
             return solutionsFound;
         }
 
-        private bool CheckTwoOptionsWithinBlockGroups()
+        private bool TryTwoOptionsWithinBlockGroups()
         {
             // There are six 'block groups'; three horizontal and three vertical;
             // For each block group check the following for values 1-9 (example: horizontal): 
@@ -400,7 +405,7 @@ namespace SudokuSolver
         // Block 1, field 1; Candidates: 4 5 7 8
         // Block 1, field 3; Candidates: 4 5 8
         // In such cases, remove the other candidates (5 and 7) from fields 1 and 3. This applies to all segments ( blocks, rows, and columns).
-        private bool CheckClothedCandidatesToStrip()
+        private bool TryStripClothedCandidates()
         {            
             bool candidatesRemoved = false;
 
@@ -424,7 +429,7 @@ namespace SudokuSolver
 
         // Try to look 'naked pairs'; if in a segment two field contain the same two candidates then those values can only go in those two fields.
         // As a consequence those candidates maybe stripped from the other fields in that segment (row, column or block)
-        private bool CheckNakedCombinations()
+        private bool TryNakedCombinations()
         {
             bool candidatesRemoved = false;
 
@@ -508,7 +513,7 @@ namespace SudokuSolver
             return candidatesRemoved;
         }
 
-        private bool CheckLockedCandidates()
+        private bool TryLockedCandidates()
         {
             var candidatesRemoved = false;
 
@@ -589,7 +594,7 @@ namespace SudokuSolver
         }
 
         // Google: Sudoku X-Wing strategy explained
-        private bool CheckXWingRows()
+        private bool TryXWingRows()
         {
             var candidatesRemoved = false;
 
@@ -626,7 +631,7 @@ namespace SudokuSolver
         }
 
         // Google: Sudoku X-Wing strategy explained
-        private bool CheckXWingColumns()
+        private bool TryXWingColumns()
         {
             var candidatesRemoved = false;
 
@@ -663,7 +668,7 @@ namespace SudokuSolver
         }
 
         // Google: Sudoku Y-Wing or XY-Wing strategy explained
-        private bool CheckYWing()
+        private bool TryYWing()
         {
             // First try to locate three buddy fields;
             // xy = 'middle' field. F.i. candidates 1, 5
@@ -685,7 +690,7 @@ namespace SudokuSolver
 
         // Per block try to find situations where a value can only exist in one row or column (e.g. two fields in block 2 on the same row where only a 7 can go).
         // In those cases eliminate 7 as a candidate of fields on that row in the other horizontal blocks (= block 1 and 3) and see what happens.
-        private bool CheckAdvancedSlashing()
+        private bool TryAdvancedSlashing()
         {
             var candidatesRemoved = false;
 

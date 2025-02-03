@@ -51,6 +51,9 @@
 
             // https://www.sudokuwiki.org/Y_Wing_Strategy
             // Y-Wing
+
+            // https://sudoku.com/sudoku-rules/y-wing/
+            // https://www.learn-sudoku.com/xy-wing.html
             string[] dataC =
             [
                 "9  24    ",
@@ -64,7 +67,7 @@
                 "2 7 86  9",
             ];
 
-            new Sudoku().Solve(dataC);
+            new Sudoku().Solve(dataB);
         }
     }
 }
