@@ -51,7 +51,7 @@ namespace SudokuSolverTests
         }
 
         [TestMethod]
-        public void ShouldSolveXWingColumnsAndYWing()
+        public void ShouldSolveXWingColumns()
         {
             // https://www.sudoku9x9.com/expert/
             // X-Wing columns
@@ -90,6 +90,29 @@ namespace SudokuSolverTests
                 "  6     3",
                 "1    2 6 ",
                 " 7    8 9",
+            ];
+
+            var solved = new Sudoku().Solve(data);
+
+            solved.Should().BeTrue();
+        }
+
+        [TestMethod]
+        public void ShouldSolveYWingRows()
+        {
+            // https://www.sudokuwiki.org/Y_Wing_Strategy
+            // Y-Wing
+            string[] data =
+            [
+                "9  24    ",
+                " 5 69 231",
+                " 2  5  9 ",
+                " 9 7  32 ",
+                "  29356 7",
+                " 7   29  ",
+                " 69 2  73",
+                "51  79 62",
+                "2 7 86  9",
             ];
 
             var solved = new Sudoku().Solve(data);

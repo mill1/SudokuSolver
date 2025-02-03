@@ -20,7 +20,6 @@
 
             // https://www.sudoku9x9.com/expert/            
             // X-Wing columns
-            // Y-Wing
             string[] dataA =
             [
                 "      3 9",

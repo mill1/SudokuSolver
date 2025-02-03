@@ -30,30 +30,29 @@ namespace SudokuSolver
         public bool Solve(string[] data)
         {
             Initialize(data);
-            
-            bool foundSolutionsBySlashing = true;
-            bool foundSolutionsByElimination = false;
+
+            int foundSolutions = 1;
             int nrOfCandidatesRemoved = 0;
 
-            while (foundSolutionsBySlashing || foundSolutionsByElimination || nrOfCandidatesRemoved > 0)
+            while (foundSolutions > 0 || nrOfCandidatesRemoved > 0)
             {
                 // 'TryStrategyX' means 'try to eliminate candidates by applying strategy X'.
 
-                iteration++;                
+                iteration++;
                 Console.WriteLine($"\nIteration {iteration}, solved: {_fields.Where(f => f.Value != null).Count()}"); Console.WriteLine(this);
 
                 nrOfCandidatesRemoved = TrySlashing();
-                foundSolutionsBySlashing = CheckAbsentValuesInCandidatesOfSegments();
+                foundSolutions = CheckAbsentValuesInCandidatesOfSegments();
 
-                nrOfCandidatesRemoved = TryEliminationByValuesInSegments();
-                foundSolutionsByElimination = CheckNakedSingles();
+                nrOfCandidatesRemoved += TryEliminationByValuesInSegments();
+                foundSolutions += CheckNakedSingles();
 
                 if (_fields.Where(f => f.Value != null).Count() == _fields.Count)
                     break;
 
-                if (!foundSolutionsBySlashing && !foundSolutionsByElimination)
+                if (foundSolutions == 0)
                 {
-                    // Complexity is basic+. Time to apply advanced strategies.!
+                    // Complexity is basic+. Time to apply advanced strategies!
 
                     // TODO lw
                     Console.ForegroundColor = ConsoleColor.Cyan;
@@ -72,10 +71,15 @@ namespace SudokuSolver
             }
 
             var solved = _fields.Where(f => f.Value != null).Count() == _fields.Count;
+            PrintResult(solved);
+            return solved;
+        }
 
+        private bool PrintResult(bool solved)
+        {
             Console.ForegroundColor = solved ? ConsoleColor.Green : ConsoleColor.Red;
 
-            if (solved) 
+            if (solved)
             {
                 CheckValiditySolution();
                 Console.WriteLine("Solved:");
@@ -83,7 +87,7 @@ namespace SudokuSolver
             else
                 Console.WriteLine("Not solved:");
 
-            Console.ForegroundColor = ConsoleColor.White; 
+            Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine(this);
 
             return solved;
@@ -132,9 +136,9 @@ namespace SudokuSolver
         }
 
         // Try to find a solution by asserting that all other fields do not contain the value as a candidate in any segment.
-        private bool CheckAbsentValuesInCandidatesOfSegments()
+        private int CheckAbsentValuesInCandidatesOfSegments()
         {
-            bool solutionsFound = false;
+            int nrOfSolutionsFound = 0;
 
             foreach (var field in _fields)
             {
@@ -156,7 +160,7 @@ namespace SudokuSolver
 
                             field.Value = value;
                             field.Candidates = [value];
-                            solutionsFound = true;
+                            nrOfSolutionsFound++;
 
                             // TODO lw
                             if (printAdvancedStrategies)
@@ -169,7 +173,7 @@ namespace SudokuSolver
                     }
                 }
             }
-            return solutionsFound;
+            return nrOfSolutionsFound;
         }
 
         // Per field try to eliminate candidates based on the values in the segments the field is part of.
@@ -199,9 +203,9 @@ namespace SudokuSolver
         }
 
         // Try to find a solution by asserting per field that only one candidate is left.
-        private bool CheckNakedSingles()
+        private int CheckNakedSingles()
         {
-            bool solutionsFound = false;
+            int solutionsFound = 0;
 
             foreach (var field in _fields.Where(f => f.Candidates.Count == 1))
             {
@@ -218,7 +222,7 @@ namespace SudokuSolver
                     }
 
                     field.Value = field.Candidates[0];
-                    solutionsFound = true;
+                    solutionsFound++;
 
 
                     if (printAdvancedStrategies)
@@ -423,15 +427,12 @@ namespace SudokuSolver
         private static int CheckNakedPairs(IEnumerable<Field> fields)
         {
             int nrOfCandidatesRemoved = 0;
-
-            // Generate candidate combinations
-            var candidateCombinations = GetCombinations(Enumerable.Range(1, 9).ToList(), 2);
-
             var fieldsWithTwoCandidates = fields.Where(f => f.Candidates.Count == 2);
+
             if (fieldsWithTwoCandidates.Count() < 2)            
                 return 0;
 
-            foreach (var combination in candidateCombinations)
+            foreach (var combination in GetCombinations(Enumerable.Range(1, 9).ToList(), 2))
             {
                 var fieldsWithTwoIdenticalCandidates = fieldsWithTwoCandidates.Where(f => f.Candidates[0] == combination[0] && f.Candidates[1] == combination[1]).ToList();
 
@@ -449,15 +450,12 @@ namespace SudokuSolver
         private static int CheckNakedTriplets(IEnumerable<Field> fields)
         {
             int nrOfCandidatesRemoved = 0;
-
-            // Generate candidate combinations based on the input candidateCount
-            var candidateCombinations = GetCombinations(Enumerable.Range(1, 9).ToList(), 3);
-
             var fieldsWithTwoCandidates = fields.Where(f => f.Candidates.Count == 2); // 2 is correct
+
             if (fieldsWithTwoCandidates.Count() < 3)
                 return 0;
 
-            foreach (var combination in candidateCombinations)
+            foreach (var combination in GetCombinations(Enumerable.Range(1, 9).ToList(), 3))
             {
                 var fieldsWithFirstNakedTriplet = fieldsWithTwoCandidates.Where(f =>  f.Candidates[0] == combination[0] && f.Candidates[1] == combination[1]);
                 var fieldsWithSecondNakedTriplet = fieldsWithTwoCandidates.Where(f => f.Candidates[0] == combination[0] && f.Candidates[1] == combination[2]);
@@ -590,15 +588,14 @@ namespace SudokuSolver
                 {
                     for (int i = 0; i <= 1; i++)
                     {
-                        var otherFieldsInRow = _fields.Rows(xWingFields[0][i].Row).Except(new List<Field> { xWingFields[0][i], xWingFields[1][i] });
+                        var otherFieldsInRow = _fields.Rows(xWingFields[0][i].Row).Except([xWingFields[0][i], xWingFields[1][i]]);
                         nrOfCandidatesRemoved += otherFieldsInRow.RemoveValueFromCandidates(value);
                     }
                 }
             }
             return nrOfCandidatesRemoved;
         }
-
-        // Google: Sudoku X-Wing strategy explained
+        
         private int TryXWingColumns()
         {
             int nrOfCandidatesRemoved = 0;
@@ -624,7 +621,7 @@ namespace SudokuSolver
                 {
                     for (int i = 0; i <= 1; i++)
                     {
-                        var otherFieldsInColumn = _fields.Columns(xWingFields[0][i].Column).Except(new List<Field> {xWingFields[0][i], xWingFields[1][i]});
+                        var otherFieldsInColumn = _fields.Columns(xWingFields[0][i].Column).Except([xWingFields[0][i], xWingFields[1][i]]);
                         nrOfCandidatesRemoved += otherFieldsInColumn.RemoveValueFromCandidates(value);
                     }
                 }
@@ -635,21 +632,73 @@ namespace SudokuSolver
         // Google: Sudoku Y-Wing or XY-Wing strategy explained
         private int TryYWing()
         {
+            int nrOfCandidatesRemoved = 0;
+
             // First try to locate three buddy fields;
-            // xy = 'middle' field. F.i. candidates 1, 5
-            // xz = 'wing 1' field. F.i. candidates 1, 2
-            // yz = 'wing 2' field. F.i. candidates 2, 5
+            // xy = 'pivot' field. F.i. candidates 3, 8
+            // xz = 'pincer 1' field. F.i. candidates 4, 8
+            // yz = 'pincer 2' field. F.i. candidates 4, 3
 
-            var fields2CandidatesOk = _fields.WithNumberOfCandidates(2);
+            var fields2Candidates = _fields.WithNumberOfCandidates(2);
 
-            var fields2Candidates = new List<Field>() { _fields2D[1, 1] };
-
-            foreach (Field field in fields2Candidates)
+            foreach (Field pivot in fields2Candidates)
             {
-                var a = field.OtherRowFields().WithNumberOfCandidates(2);
+                int x = pivot.Candidates[0];
+                int y = pivot.Candidates[1];
+
+                // Try to find posibble buddy fields.
+                var pincer1Possibilities = GetPincerPossibilities(pivot, x, fields2Candidates);
+                var pincer2Possibilities = GetPincerPossibilities(pivot, y, fields2Candidates);
+
+                // Keep those that have matching 2nd candidates
+                var candidates = Enumerable.Range(1, 9).Except(pivot.Candidates).ToList();
+
+                foreach (var candidate in candidates)
+                {
+                    var pincer1 = pincer1Possibilities.Where(f => f.Candidates.Contains(candidate));
+                    var pincer2 = pincer2Possibilities.Where(f => f.Candidates.Contains(candidate));
+
+                    if (pincer1.Any() && pincer2.Any())
+                    {
+                        nrOfCandidatesRemoved += CheckYWing(pivot, pincer1.First(), pincer2.First(), candidate);
+                        break;
+                    }
+                }
             }
 
-            return 0;
+            return nrOfCandidatesRemoved;
+        }
+
+        private int CheckYWing(Field pivot, Field pincer1, Field pincer2, int candidateToRemove)
+        {
+            int nrOfCandidatesRemoved = 0;
+
+            // Find fields that intersect with both pincers and remove the z candidate
+            var fieldsToCheck = _fields.Except([pivot, pincer1, pincer2]).Where(f => f.Candidates.Contains(candidateToRemove));
+
+            foreach (var field in fieldsToCheck)
+            {
+                if(pincer1.IntersectsWith(field) && pincer2.IntersectsWith(field))
+                {
+                    field.RemoveValueFromCandidates(candidateToRemove);
+                    nrOfCandidatesRemoved++;
+                }
+            }
+            return nrOfCandidatesRemoved;
+        }
+
+        private IEnumerable<Field> GetPincerPossibilities(Field pivot, int xyCandidate, IEnumerable<Field> fields2Candidates)
+        {
+            var pincerPossibilities = new List<Field>();
+
+            foreach (var pincerPossibility in fields2Candidates.Except([pivot]).Where(f => f.Candidates.Contains(xyCandidate)))
+            {
+                if(pivot.IntersectsWith(pincerPossibility))
+                {
+                    pincerPossibilities.Add(pincerPossibility);
+                }
+            }
+            return pincerPossibilities;
         }
 
 
@@ -779,7 +828,6 @@ namespace SudokuSolver
 
         private void CheckValiditySolution()
         {
-
             List<int> actual;
 
             for (int i = 1; i <= 9; i++)
@@ -815,22 +863,14 @@ namespace SudokuSolver
             if (perRow)
             {
                 for (int row = 0; row < 9; row++)
-                {
                     for (int col = 0; col < 9; col++)
-                    {
                         Console.WriteLine(_fields2D[row, col]);
-                    }
-                }
             }
             else
             {
                 for (int col = 0; col < 9; col++)
-                {
                     for (int row = 0; row < 9; row++)
-                    {
                         Console.WriteLine(_fields2D[row, col]);
-                    }
-                }
             }
 
             Console.WriteLine("################## PRINT END ####################");
@@ -863,9 +903,9 @@ namespace SudokuSolver
         private class BlockData
         {
             public int Value { get; set; }
-            public List<Field> Block { get; set; }
-            public IEnumerable<IGrouping<int, Field>> RowsContainingValue { get; set; }
-            public IEnumerable<IGrouping<int, Field>> ColumnsContainingValue { get; set; }
+            public required List<Field> Block { get; set; }
+            public required IEnumerable<IGrouping<int, Field>> RowsContainingValue { get; set; }
+            public required IEnumerable<IGrouping<int, Field>> ColumnsContainingValue { get; set; }
         }
     }
 }
