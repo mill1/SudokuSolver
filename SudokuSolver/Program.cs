@@ -67,7 +67,7 @@
                 "2 7 86  9",
             ];
 
-            new Sudoku().Solve(dataC);
+            new Sudoku().Solve(dataA);
         }
     }
 }

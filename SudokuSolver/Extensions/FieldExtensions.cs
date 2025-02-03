@@ -49,25 +49,35 @@ namespace SudokuSolver.Extensions
             return fields.ToList().Any(x => x.Candidates.Contains(value));
         }
 
-        public static void RemoveValueFromCandidates(this IEnumerable<Field> fields, int value)
+        public static int RemoveValueFromCandidates(this IEnumerable<Field> fields, int value)
         {
+            int nrOfCandidatesRemoved = 0;
+
             foreach (var field in fields)
             {
-                RemoveValueFromCandidates(field, value);
+                nrOfCandidatesRemoved += RemoveValueFromCandidates(field, value);
             }
+
+            return nrOfCandidatesRemoved;
         }
 
-        public static void RemoveValueFromCandidates(this Field field, int value)
+        public static int RemoveValueFromCandidates(this Field field, int value)
         {
             if (field.Candidates.Contains(value))
             {
                 var remove = field.Candidates.Single(c => c == value);
                 field.Candidates.Remove(remove);
-
+                
                 // TODO lw
                 Console.ForegroundColor = ConsoleColor.Blue;
                 Console.WriteLine($"Removed candidate {value} from {field}");
                 Console.ForegroundColor = ConsoleColor.White;
+
+                return 1;
+            }
+            else
+            {
+                return 0;
             }
         }
     }
