@@ -6,6 +6,8 @@ namespace SudokuSolverTests
     [TestClass]
     public class SudokuTests
     {
+        // TODO Test'Diabolical Strategies' en 'Extreme Strategies': https://www.sudokuwiki.org/Finned_Swordfish, https://www.sudokuwiki.org/AIC_with_ALSs etc.
+
         [TestMethod]
         public void ShouldSolveAFourStarSudoku()
         {
@@ -51,11 +53,10 @@ namespace SudokuSolverTests
         }
 
         [TestMethod]
-        public void ShouldSolveXWingColumnsAndYWing()
+        public void ShouldSolveXWingColumns()
         {
             // https://www.sudoku9x9.com/expert/
             // X-Wing columns
-            // Y-Wing
             string[] data =
             [
                 "      3 9",
@@ -93,6 +94,51 @@ namespace SudokuSolverTests
             ];
 
             var solved = new Sudoku().Solve(data);
+
+            solved.Should().BeTrue();
+        }
+
+        [TestMethod]
+        public void ShouldSolveYWingRows()
+        {
+            // https://www.sudokuwiki.org/Y_Wing_Strategy
+            // Y-Wing
+            string[] data =
+            [
+                "9  24    ",
+                " 5 69 231",
+                " 2  5  9 ",
+                " 9 7  32 ",
+                "  29356 7",
+                " 7   29  ",
+                " 69 2  73",
+                "51  79 62",
+                "2 7 86  9",
+            ];
+
+            var solved = new Sudoku().Solve(data);
+
+            solved.Should().BeTrue();
+        }
+
+        [TestMethod]
+        public void ShouldSolveEvil()
+        {
+            // https://www.livesudoku.com/en/sudoku/evil/
+            string[] data =
+            [
+                " 8     5 ",
+                "    3   8",
+                "  491   2",
+                "23  7 1  ",
+                "4  6  2 5",
+                " 7      6",
+                "  81 6  9",
+                "941      ",
+                "         ",
+            ];
+
+            var solved = new Sudoku(true).Solve(data);
 
             solved.Should().BeTrue();
         }

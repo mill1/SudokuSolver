@@ -24,6 +24,13 @@ namespace SudokuSolver.Extensions
             return fields.Where(f => f.Candidates.Count == number);
         }
 
+        public static bool IntersectsWith(this Field sourceField, Field field)
+        {
+            return sourceField.OtherRowFields().Contains(field) ||
+                   sourceField.OtherColumnFields().Contains(field) ||
+                   sourceField.OtherBlockFields().Contains(field);
+        }
+
         public static IEnumerable<Field> OtherRowFields(this Field field)
         {
             return field.Fields.Where(f => f.Row == field.Row && f.Column != field.Column);
@@ -67,11 +74,6 @@ namespace SudokuSolver.Extensions
             {
                 var remove = field.Candidates.Single(c => c == value);
                 field.Candidates.Remove(remove);
-                
-                // TODO lw
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine($"Removed candidate {value} from {field}");
-                Console.ForegroundColor = ConsoleColor.White;
 
                 return 1;
             }
