@@ -57,7 +57,7 @@ namespace SudokuSolver
                     // TODO lw
                     Console.ForegroundColor = ConsoleColor.Cyan;
                     Console.WriteLine("Enter advanced algoritms");
-                    //PrintCandidatesPerField(false);
+                    PrintCandidatesPerField(true);
                     Console.ForegroundColor = ConsoleColor.White;
                     printAdvancedStrategies = true;
 
@@ -651,17 +651,27 @@ namespace SudokuSolver
                 var pincer2Possibilities = GetPincerPossibilities(pivot, y, fields2Candidates);
 
                 // Keep those that have matching 2nd candidates
-                var candidates = Enumerable.Range(1, 9).Except(pivot.Candidates).ToList();
+                var values = Enumerable.Range(1, 9).Except(pivot.Candidates).ToList();
 
-                foreach (var candidate in candidates)
+                foreach (var value in values)
                 {
-                    var pincer1 = pincer1Possibilities.Where(f => f.Candidates.Contains(candidate));
-                    var pincer2 = pincer2Possibilities.Where(f => f.Candidates.Contains(candidate));
+                    var pincer1s = pincer1Possibilities.Where(f => f.Candidates.Contains(value));
+                    var pincer2s = pincer2Possibilities.Where(f => f.Candidates.Contains(value));
 
-                    if (pincer1.Any() && pincer2.Any())
+                    if (pincer1s.Any() && pincer2s.Any())
                     {
-                        nrOfCandidatesRemoved += CheckYWing(pivot, pincer1.First(), pincer2.First(), candidate);
-                        break;
+                        foreach (var pincer1 in pincer1s)
+                        {
+                            foreach (var pincer2 in pincer2s)
+                            {
+                                nrOfCandidatesRemoved += CheckYWing(pivot, pincer1, pincer2, value);
+
+                                if (nrOfCandidatesRemoved > 0)
+                                    break;
+                            }
+                            if (nrOfCandidatesRemoved > 0)
+                                break;
+                        }                        
                     }
                 }
             }
