@@ -1,45 +1,70 @@
 ﻿using SudokuSolver.Extensions;
+using System.Diagnostics;
 using System.Linq;
 
 namespace SudokuSolver
-{
-    // Testen met examples in 'Diabolical Strategies' en 'Extreme Strategies': https://www.sudokuwiki.org/Finned_Swordfish, https://www.sudokuwiki.org/AIC_with_ALSs etc.
+{    
     public class Sudoku
     {
         private readonly Field[,] _fields2D;
         private readonly List<Field> _fields = [];
+        private readonly bool _debug;
 
-        // TODO lw beide
-        private int iteration = 0;
-        private bool printAdvancedStrategies = false;
+        public Sudoku() : this(false)
+        {                
+        }
 
-        public Sudoku()
+        public Sudoku(bool debug)
         {
+            _debug = debug;
+
             // Initialize fields
             _fields2D = new Field[9, 9];
 
             for (int row = 0; row < 9; row++)
+            {
                 for (int col = 0; col < 9; col++)
                 {
                     var field = new Field(row + 1, col + 1, _fields);
                     _fields2D[row, col] = field;
                     _fields.Add(field);
                 }
+            }
         }
 
         public bool Solve(string[] data)
         {
-            Initialize(data);
+            try
+            {
+                Initialize(data);
+                var solved = TrySolvePuzzle();                
+                PrintResult(solved);
 
+                return solved;
+            }
+            catch (Exception e)
+            {
+                WriteLine(e, ConsoleColor.Red);
+                return false;
+            }
+        }
+
+        private bool TrySolvePuzzle()
+        {
+            int iteration = 0;
             int foundSolutions = 1;
             int nrOfCandidatesRemoved = 0;
 
             while (foundSolutions > 0 || nrOfCandidatesRemoved > 0)
             {
-                // 'TryStrategyX' means 'try to eliminate candidates by applying strategy X'.
-
                 iteration++;
-                Console.WriteLine($"\nIteration {iteration}, solved: {_fields.Where(f => f.Value != null).Count()}"); Console.WriteLine(this);
+
+                if (_debug)
+                {
+                    WriteLine($"Iteration: {iteration}", ConsoleColor.Blue);
+                    WriteLine(this, ConsoleColor.Cyan);
+                    PrintDebugInformation(true);
+                }
 
                 nrOfCandidatesRemoved = TrySlashing();
                 foundSolutions = CheckAbsentValuesInCandidatesOfSegments();
@@ -51,48 +76,26 @@ namespace SudokuSolver
                     break;
 
                 if (foundSolutions == 0)
-                {
-                    // Complexity is basic+. Time to apply advanced strategies!
-
-                    // TODO lw
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine("Enter advanced algoritms");
-                    PrintCandidatesPerField(true);
-                    Console.ForegroundColor = ConsoleColor.White;
-                    printAdvancedStrategies = true;
-
                     nrOfCandidatesRemoved = ApplyAdvancedStrategies();
-
-                    // TODO lw
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine("Exit advanced algoritms");
-                    Console.ForegroundColor = ConsoleColor.White;
-                }
             }
 
-            var solved = _fields.Where(f => f.Value != null).Count() == _fields.Count;
-            PrintResult(solved);
-            return solved;
+            return _fields.Where(f => f.Value != null).Count() == _fields.Count;
         }
 
-        private bool PrintResult(bool solved)
+        private void PrintResult(bool solved)
         {
-            Console.ForegroundColor = solved ? ConsoleColor.Green : ConsoleColor.Red;
-
             if (solved)
             {
                 CheckValiditySolution();
-                Console.WriteLine("Solved:");
+                WriteLine("Solved:", ConsoleColor.Green);
             }
             else
-                Console.WriteLine("Not solved:");
+                WriteLine("Not solved:", ConsoleColor.DarkMagenta);
 
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine(this);
-
-            return solved;
+            WriteLine(this, ConsoleColor.Yellow);
         }
 
+        // Advanced strategies. 'TryStrategyX' means 'try to eliminate candidates by applying strategy X'.
         private int ApplyAdvancedStrategies()
         {
             int nrOfCandidatesRemoved = TryStripClothedCandidates();
@@ -150,25 +153,15 @@ namespace SudokuSolver
                             !field.OtherColumnFields().CandidatesContainsValue(value) ||
                             !field.OtherBlockFields().CandidatesContainsValue(value))
                         {
-                            // TODO lw?
                             if (!field.Candidates.Contains(value))
-                            {
-                                Console.ForegroundColor = ConsoleColor.Red;
-                                Console.WriteLine(this);
-                                throw new ArgumentException($"Value not found in candidates: {field}");
-                            }                            
+                                throw new ArgumentException($"Solution value not found in candidates: {field}");
 
                             field.Value = value;
                             field.Candidates = [value];
                             nrOfSolutionsFound++;
 
-                            // TODO lw
-                            if (printAdvancedStrategies)
-                            {
-                                Console.ForegroundColor = ConsoleColor.Green;
-                                Console.WriteLine($"Found solution (1): {field}");
-                                Console.ForegroundColor = ConsoleColor.White;
-                            }
+                            if (_debug)
+                                WriteLine($"Found solution (Check absent values): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
                         }
                     }
                 }
@@ -211,26 +204,16 @@ namespace SudokuSolver
             {
                 if (field.Value == null)
                 {
-                    // TODO lw?
                     if (field.OtherRowFields().ContainsValue(field.Candidates[0]) ||
                         field.OtherColumnFields().ContainsValue(field.Candidates[0]) ||
                         field.OtherBlockFields().ContainsValue(field.Candidates[0]))
-                    {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine(this);
                         throw new ArgumentException($"Invalid single candidate: {field.Candidates[0]}! Field: {field}");
-                    }
 
                     field.Value = field.Candidates[0];
                     solutionsFound++;
 
-
-                    if (printAdvancedStrategies)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"Found solution (2): {field}");
-                        Console.ForegroundColor = ConsoleColor.White;
-                    }
+                    if (_debug)
+                        WriteLine($"Found solution (Check naked singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
                 }
             }
             return solutionsFound;
@@ -820,8 +803,6 @@ namespace SudokuSolver
         // Initialize the puzzle
         private void Initialize(string[] data)
         {
-            Console.ForegroundColor = ConsoleColor.White;
-
             for (int row = 0; row < 9; row++)
             {
                 for (int col = 0; col < 9; col++)
@@ -860,31 +841,12 @@ namespace SudokuSolver
 
             if (result.Any())
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine(this);
-                throw new InvalidOperationException($"Invalid solution! {segment} {i}, missing value: {result.First()} iteration {iteration}");
+                WriteLine(this, ConsoleColor.Magenta);
+                throw new InvalidOperationException($"Invalid solution! {segment} {i}, missing value: {result.First()}");
             };
         }
 
-        public void PrintCandidatesPerField(bool perRow)
-        {
-            Console.WriteLine("################# PRINT START ###################");
 
-            if (perRow)
-            {
-                for (int row = 0; row < 9; row++)
-                    for (int col = 0; col < 9; col++)
-                        Console.WriteLine(_fields2D[row, col]);
-            }
-            else
-            {
-                for (int col = 0; col < 9; col++)
-                    for (int row = 0; row < 9; row++)
-                        Console.WriteLine(_fields2D[row, col]);
-            }
-
-            Console.WriteLine("################## PRINT END ####################");
-        }
 
 
         public override string ToString()
@@ -908,6 +870,35 @@ namespace SudokuSolver
             output += "╚═══╩═══╩═══╝";
 
             return output;
+        }
+
+        private static void WriteLine(object obj, ConsoleColor foregroundColor = ConsoleColor.White, ConsoleColor backgroundColor = ConsoleColor.Black)
+        {
+            Console.ForegroundColor = foregroundColor;
+            Console.BackgroundColor = backgroundColor;
+            Console.WriteLine(obj);
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.BackgroundColor = ConsoleColor.Black;
+        }
+
+        private void PrintDebugInformation(bool perRow)
+        {
+            WriteLine("################# DEBUG START ###################", ConsoleColor.Cyan);
+
+            if (perRow)
+            {
+                for (int row = 0; row < 9; row++)
+                    for (int col = 0; col < 9; col++)
+                        WriteLine(_fields2D[row, col], ConsoleColor.Cyan);
+            }
+            else
+            {
+                for (int col = 0; col < 9; col++)
+                    for (int row = 0; row < 9; row++)
+                        WriteLine(_fields2D[row, col], ConsoleColor.Cyan);
+            }
+
+            WriteLine("################## DEBUG END ####################", ConsoleColor.Cyan);
         }
 
         private class BlockData

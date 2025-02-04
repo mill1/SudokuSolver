@@ -74,11 +74,6 @@ namespace SudokuSolver.Extensions
             {
                 var remove = field.Candidates.Single(c => c == value);
                 field.Candidates.Remove(remove);
-                
-                // TODO lw
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine($"Removed candidate {value} from {field}");
-                Console.ForegroundColor = ConsoleColor.White;
 
                 return 1;
             }
