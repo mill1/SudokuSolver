@@ -122,9 +122,9 @@ namespace SudokuSolverTests
         }
 
         [TestMethod]
-        public void ShouldSolveEvil()
+        public void ShouldSolveEvil0()
         {
-            // https://www.livesudoku.com/en/sudoku/evil/
+            // https://www.livesudoku.com/en/sudoku/evil/ = random
             string[] data =
             [
                 " 8     5 ",
@@ -142,5 +142,28 @@ namespace SudokuSolverTests
 
             solved.Should().BeTrue();
         }
+
+        // Is gebaseerd op to be oude volgorde
+        //[TestMethod]
+        //public void ShouldSolveSecond()
+        //{
+        //    // https://www.livesudoku.com/en/sudoku/evil/ = random
+        //    string[] data =
+        //    [
+        //        " 8  6 95 ",
+        //        " 9  35  8",
+        //        "  4918  2",
+        //        "236579184",
+        //        "419683275",
+        //        "875  1396",
+        //        "  81 6  9",
+        //        "941      ",
+        //        "    9    ",
+        //    ];
+
+        //    var solved = new Sudoku(true).Solve(data);
+
+        //    solved.Should().BeTrue();
+        //}
     }
 }

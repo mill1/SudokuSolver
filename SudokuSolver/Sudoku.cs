@@ -1,6 +1,4 @@
 ﻿using SudokuSolver.Extensions;
-using System.Diagnostics;
-using System.Linq;
 
 namespace SudokuSolver
 {    
@@ -67,19 +65,19 @@ namespace SudokuSolver
                 }
 
                 nrOfCandidatesRemoved = TrySlashing();
-                foundSolutions = CheckAbsentValuesInCandidatesOfSegments();
+                foundSolutions = CheckHiddenSingles();
 
                 nrOfCandidatesRemoved += TryEliminationByValuesInSegments();
                 foundSolutions += CheckNakedSingles();
 
-                if (_fields.Where(f => f.Value != null).Count() == _fields.Count)
+                if (_fields.Count(f => f.Value != null) == _fields.Count)
                     break;
 
                 if (foundSolutions == 0)
                     nrOfCandidatesRemoved = ApplyAdvancedStrategies();
             }
 
-            return _fields.Where(f => f.Value != null).Count() == _fields.Count;
+            return _fields.Count(f => f.Value != null) == _fields.Count;
         }
 
         private void PrintResult(bool solved)
@@ -139,7 +137,7 @@ namespace SudokuSolver
         }
 
         // Try to find a solution by asserting that all other fields do not contain the value as a candidate in any segment.
-        private int CheckAbsentValuesInCandidatesOfSegments()
+        private int CheckHiddenSingles()
         {
             int nrOfSolutionsFound = 0;
 
@@ -566,7 +564,7 @@ namespace SudokuSolver
                 if (xWingFields.Count != 2)
                     continue;
 
-                // Occurrence in identical rows regading both columns??
+                // Occurrence in identical rows regarding both columns??
                 if (xWingFields[0][0].Row == xWingFields[1][0].Row && xWingFields[0][1].Row == xWingFields[1][1].Row)
                 {
                     for (int i = 0; i <= 1; i++)
@@ -587,6 +585,8 @@ namespace SudokuSolver
             {
                 var xWingFields = new List<List<Field>>();
 
+                PrintDebugInformation(true);
+
                 for (int row = 1; row <= 9; row++)
                 {
                     var rowFields = _fields.Rows(row);
@@ -599,7 +599,7 @@ namespace SudokuSolver
                 if (xWingFields.Count != 2)
                     continue;
 
-                // Occurrence in identical columns regading both rows??
+                // Occurrence in identical columns regarding both rows??
                 if (xWingFields[0][0].Column == xWingFields[1][0].Column && xWingFields[0][1].Column == xWingFields[1][1].Column)
                 {
                     for (int i = 0; i <= 1; i++)

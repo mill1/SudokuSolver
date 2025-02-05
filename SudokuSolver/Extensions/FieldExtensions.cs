@@ -1,6 +1,4 @@
-﻿using Microsoft.VisualBasic;
-
-namespace SudokuSolver.Extensions
+﻿namespace SudokuSolver.Extensions
 {
     internal static class FieldExtensions
     {
@@ -72,6 +70,11 @@ namespace SudokuSolver.Extensions
         {
             if (field.Candidates.Contains(value))
             {
+                // TODO lw
+                if(field.Row == 1 && value == 1)
+                    Console.WriteLine(field);
+
+
                 var remove = field.Candidates.Single(c => c == value);
                 field.Candidates.Remove(remove);
 
