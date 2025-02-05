@@ -69,14 +69,12 @@
         public static int RemoveValueFromCandidates(this Field field, int value)
         {
             if (field.Candidates.Contains(value))
-            {
-                // TODO lw
-                if(field.Row == 1 && value == 1)
-                    Console.WriteLine(field);
-
-
+            {               
                 var remove = field.Candidates.Single(c => c == value);
                 field.Candidates.Remove(remove);
+
+                if (Settings.Debug)
+                    Console.WriteLine($"Removed candidate {value} from {field}...");
 
                 return 1;
             }

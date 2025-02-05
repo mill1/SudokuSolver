@@ -6,7 +6,6 @@ namespace SudokuSolver
     {
         private readonly Field[,] _fields2D;
         private readonly List<Field> _fields = [];
-        private readonly bool _debug;
 
         public Sudoku() : this(false)
         {                
@@ -14,7 +13,7 @@ namespace SudokuSolver
 
         public Sudoku(bool debug)
         {
-            _debug = debug;
+            Settings.Debug = debug;
 
             // Initialize fields
             _fields2D = new Field[9, 9];
@@ -57,11 +56,11 @@ namespace SudokuSolver
             {
                 iteration++;
 
-                if (_debug)
+                if (Settings.Debug)
                 {
-                    WriteLine($"Iteration: {iteration}", ConsoleColor.Blue);
-                    WriteLine(this, ConsoleColor.Cyan);
-                    PrintDebugInformation(true);
+                    //WriteLine($"Iteration: {iteration}", ConsoleColor.Blue);
+                    //WriteLine(this, ConsoleColor.Cyan);
+                    //PrintDebugInformation(true);
                 }
 
                 nrOfCandidatesRemoved = TrySlashing();
@@ -141,9 +140,9 @@ namespace SudokuSolver
         {
             int nrOfSolutionsFound = 0;
 
-            foreach (var field in _fields)
+            for (int value = 1; value <= 9; value++)
             {
-                for (int value = 1; value <= 9; value++)
+                foreach (var field in _fields)
                 {
                     if (field.Value == null)
                     {
@@ -158,8 +157,8 @@ namespace SudokuSolver
                             field.Candidates = [value];
                             nrOfSolutionsFound++;
 
-                            if (_debug)
-                                WriteLine($"Found solution (Check absent values): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
+                            if (Settings.Debug)
+                                WriteLine($"Found solution (Check hidden singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
                         }
                     }
                 }
@@ -189,7 +188,6 @@ namespace SudokuSolver
                     }
                 }
             }
-
             return nrOfCandidatesRemoved;
         }
 
@@ -210,7 +208,7 @@ namespace SudokuSolver
                     field.Value = field.Candidates[0];
                     solutionsFound++;
 
-                    if (_debug)
+                    if (Settings.Debug)
                         WriteLine($"Found solution (Check naked singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
                 }
             }
@@ -585,8 +583,6 @@ namespace SudokuSolver
             {
                 var xWingFields = new List<List<Field>>();
 
-                PrintDebugInformation(true);
-
                 for (int row = 1; row <= 9; row++)
                 {
                     var rowFields = _fields.Rows(row);
@@ -596,32 +592,30 @@ namespace SudokuSolver
                         xWingFields.Add(FieldsContainingCandidate);
                 }
 
-                if (xWingFields.Count != 2)
+                if (xWingFields.Count < 2)
                     continue;
 
-                // Occurrence in identical columns regarding both rows??
-                if (xWingFields[0][0].Column == xWingFields[1][0].Column && xWingFields[0][1].Column == xWingFields[1][1].Column)
+                // TODO 7-2
+                for (int i = 0; i < xWingFields.Count; i++)
                 {
-                    for (int i = 0; i <= 1; i++)
+                    // Occurrence in identical columns regarding both rows??
+                    if (xWingFields[0][0].Column == xWingFields[1][0].Column && xWingFields[0][1].Column == xWingFields[1][1].Column)
                     {
-                        var otherFieldsInColumn = _fields.Columns(xWingFields[0][i].Column).Except([xWingFields[0][i], xWingFields[1][i]]);
-                        nrOfCandidatesRemoved += otherFieldsInColumn.RemoveValueFromCandidates(value);
+                        for (int j = 0; j <= 1; j++)
+                        {
+                            var otherFieldsInColumn = _fields.Columns(xWingFields[0][j].Column).Except([xWingFields[0][j], xWingFields[1][j]]);
+                            nrOfCandidatesRemoved += otherFieldsInColumn.RemoveValueFromCandidates(value);
+                        }
                     }
                 }
             }
             return nrOfCandidatesRemoved;
         }
 
-        // Google: Sudoku Y-Wing or XY-Wing strategy explained
+        // Google: Sudoku Y-Wing or XY-Wing strategy explained. A pivot has two pincers.
         private int TryYWing()
         {
             int nrOfCandidatesRemoved = 0;
-
-            // First try to locate three buddy fields;
-            // xy = 'pivot' field. F.i. candidates 3, 8
-            // xz = 'pincer 1' field. F.i. candidates 4, 8
-            // yz = 'pincer 2' field. F.i. candidates 4, 3
-
             var fields2Candidates = _fields.WithNumberOfCandidates(2);
 
             foreach (Field pivot in fields2Candidates)
@@ -845,9 +839,6 @@ namespace SudokuSolver
                 throw new InvalidOperationException($"Invalid solution! {segment} {i}, missing value: {result.First()}");
             };
         }
-
-
-
 
         public override string ToString()
         {

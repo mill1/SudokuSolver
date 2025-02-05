@@ -33,7 +33,6 @@
                 "4  3   1 ",
             ];
 
-            // TODO zorg dat wijze van oplossen word gevolgd in sudokusolver.app
             // https://www.livesudoku.com/en/sudoku/evil/ = random
             string[] dataA =
             [
