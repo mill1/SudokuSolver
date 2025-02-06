@@ -610,69 +610,62 @@ namespace SudokuSolver
             return candidatesRemoved;
         }
 
-
-
         // Google: Sudoku Y-Wing or XY-Wing strategy explained. A pivot has two pincers.
         private int TryYWing()
         {
-            int nrOfCandidatesRemoved = 0;
-            var fields2Candidates = _fields.WithNumberOfCandidates(2);
+            int totalCandidatesRemoved = 0;
 
-            foreach (Field pivot in fields2Candidates)
+            // Get all fields with exactly 2 candidates
+            var fieldsWithTwoCandidates = _fields.WithNumberOfCandidates(2);
+
+            foreach (var pivot in fieldsWithTwoCandidates)
             {
-                int x = pivot.Candidates[0];
-                int y = pivot.Candidates[1];
+                var (x, y) = (pivot.Candidates[0], pivot.Candidates[1]);
 
-                // Try to find posibble buddy fields.
-                var pincer1Possibilities = GetPincerPossibilities(pivot, x, fields2Candidates);
-                var pincer2Possibilities = GetPincerPossibilities(pivot, y, fields2Candidates);
+                // Find potential pincers for both candidates
+                var pincer1Candidates = GetPincerPossibilities(pivot, x, fieldsWithTwoCandidates);
+                var pincer2Candidates = GetPincerPossibilities(pivot, y, fieldsWithTwoCandidates);
 
-                // Keep those that have matching 2nd candidates
-                var values = Enumerable.Range(1, 9).Except(pivot.Candidates).ToList();
+                // Identify the third candidate (z) that both pincers share
+                var potentialThirdValues = Enumerable.Range(1, 9).Except(new[] { x, y });
 
-                foreach (var value in values)
+                foreach (var z in potentialThirdValues)
                 {
-                    var pincer1s = pincer1Possibilities.Where(f => f.Candidates.Contains(value));
-                    var pincer2s = pincer2Possibilities.Where(f => f.Candidates.Contains(value));
+                    var pincer1s = pincer1Candidates.Where(f => f.Candidates.Contains(z));
+                    var pincer2s = pincer2Candidates.Where(f => f.Candidates.Contains(z));
 
+                    // If valid pincers are found, attempt to remove z from intersecting fields
                     if (pincer1s.Any() && pincer2s.Any())
                     {
                         foreach (var pincer1 in pincer1s)
                         {
                             foreach (var pincer2 in pincer2s)
                             {
-                                nrOfCandidatesRemoved += CheckYWing(pivot, pincer1, pincer2, value);
-
-                                if (nrOfCandidatesRemoved > 0)
-                                    break;
+                                totalCandidatesRemoved += CheckYWing(pivot, pincer1, pincer2, z);
+                                if (totalCandidatesRemoved > 0) return totalCandidatesRemoved;  // Early exit on success
                             }
-                            if (nrOfCandidatesRemoved > 0)
-                                break;
-                        }                        
+                        }
                     }
                 }
             }
 
-            return nrOfCandidatesRemoved;
+            return totalCandidatesRemoved;
         }
+
 
         private int CheckYWing(Field pivot, Field pincer1, Field pincer2, int candidateToRemove)
         {
-            int nrOfCandidatesRemoved = 0;
-
-            // Find fields that intersect with both pincers and remove the z candidate
-            var fieldsToCheck = _fields.Except([pivot, pincer1, pincer2]).Where(f => f.Candidates.Contains(candidateToRemove));
-
-            foreach (var field in fieldsToCheck)
-            {
-                if(pincer1.IntersectsWith(field) && pincer2.IntersectsWith(field))
+            return _fields
+                .Except(new[] { pivot, pincer1, pincer2 })
+                .Where(f => f.Candidates.Contains(candidateToRemove) && pincer1.IntersectsWith(f) && pincer2.IntersectsWith(f))
+                .Select(f =>
                 {
-                    field.RemoveValueFromCandidates(candidateToRemove);
-                    nrOfCandidatesRemoved++;
-                }
-            }
-            return nrOfCandidatesRemoved;
+                    f.RemoveValueFromCandidates(candidateToRemove);
+                    return 1;
+                })
+                .Sum();  // Sum up the number of candidates removed
         }
+
 
         private IEnumerable<Field> GetPincerPossibilities(Field pivot, int xyCandidate, IEnumerable<Field> fields2Candidates)
         {
