@@ -539,78 +539,78 @@ namespace SudokuSolver
         // Google: Sudoku X-Wing strategy explained
         private int TryXWing()
         {
-            return TryXWingRows() + TryXWingColumns();
+            int totalCandidatesRemoved = 0;
+
+            // Loop through all possible candidates (1 to 9)
+            for (int candidate = 1; candidate <= 9; candidate++)
+            {
+                // Check for X-Wing patterns in both rows and columns
+                totalCandidatesRemoved += FindXWing(candidate, isRowBased: true);
+                totalCandidatesRemoved += FindXWing(candidate, isRowBased: false);
+            }
+
+            return totalCandidatesRemoved;
         }
 
-        private int TryXWingRows()
+        private int FindXWing(int candidate, bool isRowBased)
         {
-            int nrOfCandidatesRemoved = 0;
+            int candidatesRemoved = 0;
+            var lineCandidates = new Dictionary<int, List<int>>();  // Line index -> List of positions where candidate exists
 
-            for (int value = 1; value <= 9; value++)
+            // Step 1: Collect lines (rows or columns) with exactly two candidates
+            for (int line = 0; line < 9; line++)
             {
-                var xWingFields = new List<List<Field>>();
+                var positionsWithCandidate = new List<int>();
 
-                for (int column = 1; column <= 9; column++)
+                for (int pos = 0; pos < 9; pos++)
                 {
-                    var columnFields = _fields.Columns(column);
-                    var FieldsContainingCandidate = columnFields.Where(f => f.Candidates.Contains(value)).ToList();
-
-                    if (FieldsContainingCandidate.Count == 2)
-                        xWingFields.Add(FieldsContainingCandidate);
-                }
-
-                if (xWingFields.Count != 2)
-                    continue;
-
-                // Occurrence in identical rows regarding both columns??
-                if (xWingFields[0][0].Row == xWingFields[1][0].Row && xWingFields[0][1].Row == xWingFields[1][1].Row)
-                {
-                    for (int i = 0; i <= 1; i++)
+                    var field = isRowBased ? _fields2D[line, pos] : _fields2D[pos, line];
+                    if (field.Candidates.Contains(candidate))
                     {
-                        var otherFieldsInRow = _fields.Rows(xWingFields[0][i].Row).Except([xWingFields[0][i], xWingFields[1][i]]);
-                        nrOfCandidatesRemoved += otherFieldsInRow.RemoveValueFromCandidates(value);
+                        positionsWithCandidate.Add(pos);
                     }
                 }
-            }
-            return nrOfCandidatesRemoved;
-        }
-        
-        private int TryXWingColumns()
-        {
-            int nrOfCandidatesRemoved = 0;
 
-            for (int value = 1; value <= 9; value++)
-            {
-                var xWingFields = new List<List<Field>>();
-
-                for (int row = 1; row <= 9; row++)
+                if (positionsWithCandidate.Count == 2)
                 {
-                    var rowFields = _fields.Rows(row);
-                    var FieldsContainingCandidate = rowFields.Where(f => f.Candidates.Contains(value)).ToList();
-
-                    if (FieldsContainingCandidate.Count == 2)
-                        xWingFields.Add(FieldsContainingCandidate);
+                    lineCandidates[line] = positionsWithCandidate;
                 }
+            }
 
-                if (xWingFields.Count < 2)
-                    continue;
+            // Step 2: Identify X-Wing patterns and eliminate candidates
+            var lines = lineCandidates.Keys.ToList();
 
-                // TODO 7-2
-                for (int i = 0; i < xWingFields.Count; i++)
+            for (int i = 0; i < lines.Count - 1; i++)
+            {
+                for (int j = i + 1; j < lines.Count; j++)
                 {
-                    // Occurrence in identical columns regarding both rows??
-                    if (xWingFields[0][0].Column == xWingFields[1][0].Column && xWingFields[0][1].Column == xWingFields[1][1].Column)
+                    var line1 = lines[i];
+                    var line2 = lines[j];
+
+                    // Check if positions match to form an X-Wing
+                    if (lineCandidates[line1].SequenceEqual(lineCandidates[line2]))
                     {
-                        for (int j = 0; j <= 1; j++)
+                        var commonPositions = lineCandidates[line1];
+
+                        // Eliminate candidate from other lines in the matched positions
+                        foreach (var pos in commonPositions)
                         {
-                            var otherFieldsInColumn = _fields.Columns(xWingFields[0][j].Column).Except([xWingFields[0][j], xWingFields[1][j]]);
-                            nrOfCandidatesRemoved += otherFieldsInColumn.RemoveValueFromCandidates(value);
+                            for (int otherLine = 0; otherLine < 9; otherLine++)
+                            {
+                                if (otherLine != line1 && otherLine != line2)
+                                {
+                                    var field = isRowBased ? _fields2D[otherLine, pos] : _fields2D[pos, otherLine];
+                                    candidatesRemoved += field.RemoveValueFromCandidates(candidate);
+                                }
+                            }
                         }
                     }
                 }
             }
-            return nrOfCandidatesRemoved;
+            return candidatesRemoved;
         }
+
+
 
         // Google: Sudoku Y-Wing or XY-Wing strategy explained. A pivot has two pincers.
         private int TryYWing()
