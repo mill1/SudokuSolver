@@ -22,12 +22,12 @@
             return fields.Where(f => f.Candidates.Count == number);
         }
 
-        public static bool IntersectsWith(this Field sourceField, Field field)
-        {
-            return sourceField.OtherRowFields().Contains(field) ||
-                   sourceField.OtherColumnFields().Contains(field) ||
-                   sourceField.OtherBlockFields().Contains(field);
-        }
+public static bool IntersectsWith(this Field sourceField, Field field)
+{
+    return sourceField.OtherRowFields().Contains(field) ||
+            sourceField.OtherColumnFields().Contains(field) ||
+            sourceField.OtherBlockFields().Contains(field);
+}
 
         public static IEnumerable<Field> OtherRowFields(this Field field)
         {
@@ -62,12 +62,20 @@
             {
                 nrOfCandidatesRemoved += RemoveValueFromCandidates(field, value);
             }
-
             return nrOfCandidatesRemoved;
         }
 
         public static int RemoveValueFromCandidates(this Field field, int value)
         {
+            // TODO lw
+            if (!field.OtherRowFields().CandidatesContainsValue(value) ||
+                !field.OtherColumnFields().CandidatesContainsValue(value) ||
+                !field.OtherBlockFields().CandidatesContainsValue(value))
+            {
+                Console.WriteLine(666);
+            }
+
+
             if (field.Candidates.Contains(value))
             {               
                 var remove = field.Candidates.Single(c => c == value);
