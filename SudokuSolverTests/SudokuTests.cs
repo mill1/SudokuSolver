@@ -55,34 +55,9 @@ namespace SudokuSolverTests
 
             solved.Should().BeTrue();
         }
-
-        [TestMethod ("Test PointingPairsTriples and Claiming Pairs/Triples")]
-        // Test next simple strategies:
-        // 4. Pointing Pairs/Triples
-        // 5. Claiming Pairs/Triples
-        public void ShouldSolvePointingPairsTriples()
-        {
-            // https://www.taupierbw.be/SudokuCoach/SC_PointingTriple.shtml            
-            string[] data =
-            [
-                "  9 7    ",
-                " 8 4     ",
-                "  3    28",
-                "1     67 ",
-                " 2  13 4 ",
-                " 4   78  ",
-                "6   3    ",
-                " 1       ",
-                "      284",
-            ];
-
-            var solved = new Sudoku().Solve(data);
-
-            solved.Should().BeTrue();
-        }
-
+        
         [TestMethod]
-        // Test next strategies:
+        // Test 4. Naked Pairs/Triples/Quads
         // Naked Pair (n = 2)
         // Naked Triple (n = 3) 
         // Naked Quad (n = 4)
@@ -107,6 +82,121 @@ namespace SudokuSolverTests
             solved.Should().BeTrue();
         }
 
+        [TestMethod("Test Hidden Pair")]
+        // 5a. Hidden Pairs
+        public void ShouldSolveHiddenPair()
+        {
+            // url https://www.sudokuwiki.org/hidden_candidates
+            string[] data =
+            [
+                "         ",
+                "9 46 7   ",
+                " 768 41  ",
+                "3 97 1 8 ",
+                "7 8   3 1",
+                " 513 87 2",
+                "  75 261 ",
+                "  54 32 8",
+                "         ",
+            ];
+
+            var solved = new Sudoku().Solve(data);
+
+            solved.Should().BeTrue();
+        }
+
+        [TestMethod("Test Hidden Triple")]
+        // 5b. Hidden Triples
+        public void ShouldSolveHiddenTriple()
+        {
+            // url https://www.sudokuwiki.org/hidden_candidates
+            string[] data =
+            [
+                "65  87 24",
+                "   649 5 ",
+                " 4  25   ",
+                "57 438 61",
+                "   5 1   ",
+                "31 9 2 85",
+                "   89  1 ",
+                "   213   ",
+                "13 75  98",
+            ];
+
+            var solved = new Sudoku().Solve(data);
+
+            solved.Should().BeTrue();
+        }
+
+        [TestMethod("Test Hidden Quadruple")]
+        // 5c. Hidden Quads
+        public void ShouldSolveHiddenQuad()
+        {
+            // url https://www.sudokuwiki.org/hidden_candidates
+            string[] data =
+            [
+                "65  87 24",
+                "   649 5 ",
+                " 4  25   ",
+                "57 438 61",
+                "   5 1   ",
+                "31 9 2 85",
+                "   89  1 ",
+                "   213   ",
+                "13 75  98",
+            ];
+
+            var solved = new Sudoku().Solve(data);
+
+            solved.Should().BeTrue();
+        }
+
+        [TestMethod("Test PointingPairs and PointingTriples")]
+        // Test 6. Pointing Pairs/Triples
+        public void ShouldSolvePointingPairsTriples()
+        {
+            // https://sudoku.com/sudoku-rules/pointing-pairs/
+            // https://sudoku.com/sudoku-rules/pointing-triples/
+
+            string[] data =
+            [
+                "     1 3 ",
+                "231 9    ",
+                " 65  31  ",
+                "6789243  ",
+                "1 3 5   6",
+                "   1367  ",
+                "  936 57 ",
+                "  6 19843",
+                "3        ",
+            ];
+
+            var solved = new Sudoku().Solve(data);
+
+            solved.Should().BeTrue();
+        }
+
+        [TestMethod]
+        public void ShouldLockedCandidates()
+        {
+            // https://www.livesudoku.com/en/sudoku/evil/ = random
+            string[] data =
+            [
+                " 8     5 ",
+                "    3   8",
+                "  491   2",
+                "23  7 1  ",
+                "4  6  2 5",
+                " 7      6",
+                "  81 6  9",
+                "941      ",
+                "         ",
+            ];
+
+            var solved = new Sudoku(true).Solve(data);
+
+            solved.Should().BeTrue();
+        }
 
         [TestMethod]
         public void ShouldSolveXWingColumns()
@@ -155,7 +245,7 @@ namespace SudokuSolverTests
         }
 
         [TestMethod]
-        public void ShouldSolveYWingRows()
+        public void ShouldSolveYWing()
         {
             // https://www.sudokuwiki.org/Y_Wing_Strategy
             // Y-Wing
@@ -196,28 +286,6 @@ namespace SudokuSolverTests
             ];
 
             var solved = new Sudoku().Solve(data);
-
-            solved.Should().BeTrue();
-        }
-
-        [TestMethod]
-        public void ShouldSolveEvil()
-        {
-            // https://www.livesudoku.com/en/sudoku/evil/ = random
-            string[] data =
-            [
-                " 8     5 ",
-                "    3   8",
-                "  491   2",
-                "23  7 1  ",
-                "4  6  2 5",
-                " 7      6",
-                "  81 6  9",
-                "941      ",
-                "         ",
-            ];
-
-            var solved = new Sudoku(true).Solve(data);
 
             solved.Should().BeTrue();
         }

@@ -44,6 +44,19 @@
             return field.Fields.Where(f => f.Block == field.Block && f != field);
         }
 
+        public static IEnumerable<Field> OtherPeers(this Field field)
+        {
+            // Get all unique fields from the row, column, and block excluding the current field
+            var rowPeers = field.OtherRowFields();
+            var columnPeers = field.OtherColumnFields();
+            var blockPeers = field.OtherBlockFields();
+
+            // Combine all peers and remove duplicates using Distinct
+            return rowPeers.Concat(columnPeers)
+                           .Concat(blockPeers)
+                           .Distinct();  // Ensure no duplicates (if a field shares both row and block, for example)
+        }
+
         public static bool ContainsValue(this IEnumerable<Field> fields, int value)
         {
             return fields.ToList().Any(x => x.Value == value);
