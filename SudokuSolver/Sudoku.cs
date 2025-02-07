@@ -114,6 +114,9 @@ namespace SudokuSolver
             if (nrOfCandidatesRemoved == 0)
                 nrOfCandidatesRemoved = TryYWing();
 
+            if (nrOfCandidatesRemoved == 0)
+                nrOfCandidatesRemoved = TryXYZWing();
+
             return nrOfCandidatesRemoved;
         }
 
@@ -667,20 +670,77 @@ namespace SudokuSolver
         }
 
 
-        private IEnumerable<Field> GetPincerPossibilities(Field pivot, int xyCandidate, IEnumerable<Field> fields2Candidates)
+        private IEnumerable<Field> GetPincerPossibilities(Field pivot, int candidate, IEnumerable<Field> fieldsWithTwoCandidates)
         {
-            var pincerPossibilities = new List<Field>();
-
-            foreach (var pincerPossibility in fields2Candidates.Except([pivot]).Where(f => f.Candidates.Contains(xyCandidate)))
-            {
-                if(pivot.IntersectsWith(pincerPossibility))
-                {
-                    pincerPossibilities.Add(pincerPossibility);
-                }
-            }
-            return pincerPossibilities;
+            return fieldsWithTwoCandidates
+                .Where(f => f != pivot && f.Candidates.Contains(candidate) && pivot.IntersectsWith(f));
         }
 
+        private int TryXYZWing()
+        {
+            int totalCandidatesRemoved = 0;
+
+            // Step 1: Identify all pivot fields with exactly 3 candidates
+            var pivotFields = _fields.WithNumberOfCandidates(3);
+
+            foreach (var pivot in pivotFields)
+            {
+                var candidates = pivot.Candidates;
+
+                // Step 2: Find possible pincers that share candidates with the pivot
+                var pincerCandidates = _fields.WithNumberOfCandidates(2)
+                    .Where(p => pivot.IntersectsWith(p))
+                    .ToList();
+
+                // Step 3: Look for two pincers that match XYZ-Wing conditions
+                foreach (var pincer1 in pincerCandidates)
+                {
+                    foreach (var pincer2 in pincerCandidates.Except(new[] { pincer1 }))
+                    {
+                        // Check if pincers and pivot together form an XYZ-Wing
+                        var allCandidates = pivot.Candidates
+                            .Union(pincer1.Candidates)
+                            .Union(pincer2.Candidates)
+                            .ToList();
+
+                        if (allCandidates.Count == 3 &&
+                            pincer1.Candidates.Intersect(pivot.Candidates).Any() &&
+                            pincer2.Candidates.Intersect(pivot.Candidates).Any())
+                        {
+                            // Step 4: Determine the candidate to remove (present in pivot but not in pincers)
+                            var candidateToRemove = pivot.Candidates
+                                .Except(pincer1.Candidates)
+                                .Except(pincer2.Candidates)
+                                .FirstOrDefault();
+
+                            if (candidateToRemove != 0)
+                            {
+                                totalCandidatesRemoved += CheckXYZWing(pivot, pincer1, pincer2, candidateToRemove);
+                                if (totalCandidatesRemoved > 0) return totalCandidatesRemoved;  // Early exit if candidates removed
+                            }
+                        }
+                    }
+                }
+            }
+
+            return totalCandidatesRemoved;
+        }
+
+        private int CheckXYZWing(Field pivot, Field pincer1, Field pincer2, int candidateToRemove)
+        {
+            return _fields
+                .Except(new[] { pivot, pincer1, pincer2 })
+                .Where(f => f.Candidates.Contains(candidateToRemove) &&
+                            pivot.IntersectsWith(f) &&
+                            pincer1.IntersectsWith(f) &&
+                            pincer2.IntersectsWith(f))
+                .Select(f =>
+                {
+                    f.RemoveValueFromCandidates(candidateToRemove);
+                    return 1;
+                })
+                .Sum();
+        }
 
         // Per block try to find situations where a value can only exist in one row or column (e.g. two fields in block 2 on the same row where only a 7 can go).
         // In those cases eliminate 7 as a candidate of fields on that row in the other horizontal blocks (= block 1 and 3) and see what happens.
