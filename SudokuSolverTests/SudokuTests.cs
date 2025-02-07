@@ -122,7 +122,30 @@ namespace SudokuSolverTests
         }
 
         [TestMethod]
-        public void ShouldSolveEvil0()
+        public void ShouldSolveXYZ()
+        {
+            // https://www.sudokuwiki.org/XYZ_wing
+            // Y-Wing
+            string[] data =
+            [
+                " 92  175 ",
+                "5  2    8",
+                "    3 2  ",
+                " 75  496 ",
+                "2   6  75",
+                " 697   3 ",
+                "  8 9  2 ",
+                "7    3 89",
+                "9 38   4 "
+            ];
+
+            var solved = new Sudoku().Solve(data);
+
+            solved.Should().BeTrue();
+        }
+
+        [TestMethod]
+        public void ShouldSolveEvil()
         {
             // https://www.livesudoku.com/en/sudoku/evil/ = random
             string[] data =
@@ -142,28 +165,5 @@ namespace SudokuSolverTests
 
             solved.Should().BeTrue();
         }
-
-        // Is gebaseerd op to be oude volgorde
-        //[TestMethod]
-        //public void ShouldSolveSecond()
-        //{
-        //    // https://www.livesudoku.com/en/sudoku/evil/ = random
-        //    string[] data =
-        //    [
-        //        " 8  6 95 ",
-        //        " 9  35  8",
-        //        "  4918  2",
-        //        "236579184",
-        //        "419683275",
-        //        "875  1396",
-        //        "  81 6  9",
-        //        "941      ",
-        //        "    9    ",
-        //    ];
-
-        //    var solved = new Sudoku(true).Solve(data);
-
-        //    solved.Should().BeTrue();
-        //}
     }
 }

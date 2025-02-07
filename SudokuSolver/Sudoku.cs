@@ -63,7 +63,7 @@ namespace SudokuSolver
                     //PrintDebugInformation(true);
                 }
 
-                nrOfCandidatesRemoved = TrySlashing();
+                nrOfCandidatesRemoved = TryBasicCandidateElimination();
                 foundSolutions = CheckHiddenSingles();
 
                 nrOfCandidatesRemoved += TryEliminationByValuesInSegments();
@@ -95,12 +95,12 @@ namespace SudokuSolver
         // Advanced strategies. 'TryStrategyX' means 'try to eliminate candidates by applying strategy X'.
         private int ApplyAdvancedStrategies()
         {
-            int nrOfCandidatesRemoved = TryStripClothedCandidates();
+            int nrOfCandidatesRemoved = TryNakedSubsets();
 
             nrOfCandidatesRemoved += TryNakedCombinations();
 
             if (nrOfCandidatesRemoved == 0)
-                nrOfCandidatesRemoved = TryAdvancedSlashing();
+                nrOfCandidatesRemoved = TryPointingPairsTriples();
 
             if (nrOfCandidatesRemoved == 0)
                 nrOfCandidatesRemoved = TryTwoOptionsWithinBlockGroups();
@@ -121,22 +121,26 @@ namespace SudokuSolver
         }
 
         // Per value try to remove candidates from other fields within the same segment (row, column or block).
-        private int TrySlashing()
+        private int TryBasicCandidateElimination()
         {
-            int nrOfCandidatesRemoved = 0;
+            int totalCandidatesRemoved = 0;
 
-            foreach (var field in _fields)
+            foreach (var field in _fields.Where(f => f.Value == null))
             {
-                if (field.Value != null)
-                {
-                    nrOfCandidatesRemoved += field.OtherRowFields().RemoveValueFromCandidates((int)field.Value);
-                    nrOfCandidatesRemoved += field.OtherColumnFields().RemoveValueFromCandidates((int)field.Value);
-                    nrOfCandidatesRemoved += field.OtherBlockFields().RemoveValueFromCandidates((int)field.Value);
-                }
-            }
+                var existingValues = field.OtherRowFields().Select(f => f.Value)
+                    .Concat(field.OtherColumnFields().Select(f => f.Value))
+                    .Concat(field.OtherBlockFields().Select(f => f.Value))
+                    .Where(v => v.HasValue)
+                    .Select(v => v.Value)
+                    .Distinct()
+                    .ToList();
 
-            return nrOfCandidatesRemoved;
+                foreach (var value in existingValues)
+                    totalCandidatesRemoved += field.RemoveValueFromCandidates(value);
+            }
+            return totalCandidatesRemoved;
         }
+
 
         // Try to find a solution by asserting that all other fields do not contain the value as a candidate in any segment.
         private int CheckHiddenSingles()
@@ -358,12 +362,13 @@ namespace SudokuSolver
             return block.Where(f => f.Candidates.Contains(value)).GroupBy(f => f.Column);
         }
 
-        // Identify situations where, regarding a segment, two fields contain only two different possible values (or three in the case of three fields, etc.)
-        // For example, in block 1, fields 1 and 3 contain candidates with the possible values 4 and 8.
+        // Identify situations where, regarding a segment ((row, columns or block)), two fields contain only n different possible values.
+        // n can be either 2, 3 or 4. Example clarifying n = 2:
+        // In block 1, field 1 and field 3 contain candidates with the possible values 4 and 8;
         // Block 1, field 1; Candidates: 4 5 7 8
         // Block 1, field 3; Candidates: 4 5 8
-        // In such cases, remove the other candidates (5 and 7) from fields 1 and 3. This applies to all segments ( blocks, rows, and columns).
-        private int TryStripClothedCandidates()
+        // In such cases, remove the other candidates (5 and 7) from fields 1 and 3. This applies to all segments.
+        private int TryNakedSubsets()
         {            
             int nrOfCandidatesRemoved = 0;
 
@@ -744,30 +749,50 @@ namespace SudokuSolver
 
         // Per block try to find situations where a value can only exist in one row or column (e.g. two fields in block 2 on the same row where only a 7 can go).
         // In those cases eliminate 7 as a candidate of fields on that row in the other horizontal blocks (= block 1 and 3) and see what happens.
-        private int TryAdvancedSlashing()
+        private int TryPointingPairsTriples()
         {
-            int nrOfCandidatesRemoved = 0;
+            int totalCandidatesRemoved = 0;
 
             for (int block = 1; block <= 9; block++)
             {
                 for (int value = 1; value <= 9; value++)
                 {
-                    var fieldsInBlockWithValueInCandidates = _fields.Blocks(block).Where(f => f.Candidates.Contains(value)).ToList();
+                    var candidateFields = _fields.Blocks(block).Where(f => f.Candidates.Contains(value)).ToList();
 
-                    if (fieldsInBlockWithValueInCandidates.Count <= 3)
+                    if (candidateFields.Count is >= 2 and <= 3)
                     {
-                        // In same row?
-                        if (fieldsInBlockWithValueInCandidates.GroupBy(f => f.Row).Count() == 1)
-                            nrOfCandidatesRemoved += RemoveCandidatesOutsideBlock(block, value, fieldsInBlockWithValueInCandidates, true);
-
-                        // In same column?
-                        if (fieldsInBlockWithValueInCandidates.GroupBy(f => f.Column).Count() == 1)
-                            nrOfCandidatesRemoved += RemoveCandidatesOutsideBlock(block, value, fieldsInBlockWithValueInCandidates, false);
+                        // Check for pointing pairs/triples in rows or columns
+                        totalCandidatesRemoved += RemovePointingCandidates(block, value, candidateFields, isRow: true);
+                        totalCandidatesRemoved += RemovePointingCandidates(block, value, candidateFields, isRow: false);
                     }
                 }
             }
-            return nrOfCandidatesRemoved;
+            return totalCandidatesRemoved;
         }
+
+        private int RemovePointingCandidates(int block, int value, List<Field> candidateFields, bool isRow)
+        {
+            // Extract the unique rows or columns
+            var uniqueSegments = isRow
+                ? candidateFields.Select(f => f.Row).Distinct().ToList()
+                : candidateFields.Select(f => f.Column).Distinct().ToList();
+
+            // Proceed only if all candidates are in the same row or column
+            if (uniqueSegments.Count == 1)
+            {
+                int segment = uniqueSegments.First();
+
+                // Select fields outside the block but in the same row/column
+                var fieldsToCheck = _fields
+                    .Where(f => f.Block != block && (isRow ? f.Row == segment : f.Column == segment) && f.Candidates.Contains(value))
+                    .ToList();
+
+                // Remove the candidate from these fields
+                return fieldsToCheck.RemoveValueFromCandidates(value);
+            }
+            return 0;
+        }
+
 
         private int RemoveCandidatesOutsideBlock(int block, int value, List<Field> fieldsInBlockWithValueInCandidates, bool isRow)
         {
