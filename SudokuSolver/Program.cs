@@ -20,7 +20,7 @@
 
 
             // https://www.sudoku9x9.com/expert/            
-            string[] data =
+            string[] dataA =
             [
                 "      3 9",
                 "    4  6 ",
@@ -34,7 +34,7 @@
             ];
 
             // https://www.livesudoku.com/en/sudoku/evil/ = random
-            string[] dataA =
+            string[] dataB =
             [
                 " 8     5 ",
                 "    3   8",
@@ -47,7 +47,20 @@
                 "         ",
             ];
 
-            new Sudoku(true).Solve(dataA);
+            string[] data =
+            [
+                "   5 3624",
+                "324  7 16",
+                "    24 3 ",
+                "1     3  ",
+                "2 6 719 4",
+                "  9     1",
+                "   6834  ",
+                "4 271   3",
+                " 834 21  ",
+            ];
+
+            new Sudoku(true).Solve(data);
         }
     }
 }

@@ -8,7 +8,33 @@ namespace SudokuSolverTests
     {
         // TODO Test'Diabolical Strategies' en 'Extreme Strategies': https://www.sudokuwiki.org/Finned_Swordfish, https://www.sudokuwiki.org/AIC_with_ALSs etc.
 
-        [TestMethod]
+        [TestMethod("Test Strategy")]
+        public void ShouldSolveStrategy()
+        {
+            // url
+            string[] data =
+            [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ];
+
+            var solved = new Sudoku().Solve(data);
+
+            solved.Should().BeTrue();
+        }
+
+        [TestMethod ("Test first three simple strategies")]
+        // Test first three simple strategies:
+        // 1. Basic Candidate Elimination
+        // 2. Naked Singles
+        // 3. Hidden Singles
         public void ShouldSolveAFourStarSudoku()
         {
             // 4 star puzzle page 12
@@ -30,8 +56,37 @@ namespace SudokuSolverTests
             solved.Should().BeTrue();
         }
 
+        [TestMethod ("Test PointingPairsTriples and Claiming Pairs/Triples")]
+        // Test next simple strategies:
+        // 4. Pointing Pairs/Triples
+        // 5. Claiming Pairs/Triples
+        public void ShouldSolvePointingPairsTriples()
+        {
+            // https://www.taupierbw.be/SudokuCoach/SC_PointingTriple.shtml            
+            string[] data =
+            [
+                "  9 7    ",
+                " 8 4     ",
+                "  3    28",
+                "1     67 ",
+                " 2  13 4 ",
+                " 4   78  ",
+                "6   3    ",
+                " 1       ",
+                "      284",
+            ];
+
+            var solved = new Sudoku().Solve(data);
+
+            solved.Should().BeTrue();
+        }
+
         [TestMethod]
-        public void ShouldSolveAFiveStarSudoku()
+        // Test next strategies:
+        // Naked Pair (n = 2)
+        // Naked Triple (n = 3) 
+        // Naked Quad (n = 4)
+        public void ShouldSolveNakedSubsets()
         {
             // 5 star puzzle page 13
             string[] data =
@@ -51,6 +106,7 @@ namespace SudokuSolverTests
 
             solved.Should().BeTrue();
         }
+
 
         [TestMethod]
         public void ShouldSolveXWingColumns()
@@ -165,5 +221,28 @@ namespace SudokuSolverTests
 
             solved.Should().BeTrue();
         }
+
+        [TestMethod]
+        public void ShouldSolveThisOne()
+        {
+            // https://www.taupierbw.be/SudokuCoach/SC_PointingTriple.shtml            
+            string[] data =
+            [
+                "   5 3624",
+                "324  7 16",
+                "    24 3 ",
+                "1     3  ",
+                "2 6 719 4",
+                "  9     1",
+                "   6834  ",
+                "4 271   3",
+                " 834 21  ",
+            ];
+
+            var solved = new Sudoku().Solve(data);
+
+            solved.Should().BeTrue();
+        }
+
     }
 }
