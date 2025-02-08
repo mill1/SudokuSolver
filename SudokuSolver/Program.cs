@@ -7,9 +7,7 @@
             bool debug = false;
             if(args.Length > 0) 
                 debug = true;
-
-
-            // https://www.sudoku9x9.com/expert/            
+            
             string[] data =
             [
                 "     1 3 ",
