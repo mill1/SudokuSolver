@@ -4,51 +4,26 @@
     {
         static void Main(string[] args)
         {
-            // Template
-            string[] data0 =
-            [
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-            ];
+            bool debug = false;
+            if(args.Length > 0) 
+                debug = true;
 
 
             // https://www.sudoku9x9.com/expert/            
-            string[] dataA =
-            [
-                "      3 9",
-                "    4  6 ",
-                "    26  8",
-                "5 1  4 2 ",
-                " 7  18   ",
-                "  6      ",
-                "8     6  ",
-                "    95  7",
-                "4  3   1 ",
-            ];
-
-
             string[] data =
             [
-                "4 8  5   ",
-                "    7    ",
-                "   6 1   ",
+                "     1 3 ",
+                "231 9    ",
+                " 65  31  ",
+                "6789243  ",
+                "1 3 5   6",
+                "   1367  ",
+                "  936 57 ",
+                "  6 19843",
                 "3        ",
-                " 9  1 24 ",
-                " 5  846  ",
-                "  6     3",
-                "1    2 6 ",
-                " 7    8 9",
             ];
 
-
-            new Sudoku(true).Solve(data);
+            new Sudoku(debug).Solve(data);
         }
     }
 }

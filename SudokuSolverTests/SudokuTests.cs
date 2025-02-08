@@ -6,37 +6,85 @@ namespace SudokuSolverTests
     [TestClass]
     public class SudokuTests
     {
-        // TODO Test'Diabolical Strategies' en 'Extreme Strategies': https://www.sudokuwiki.org/Finned_Swordfish, https://www.sudokuwiki.org/AIC_with_ALSs etc.
-
-        [TestMethod("Test Strategy")]
-        public void ShouldSolveStrategy()
+        [TestMethod]
+        public void ShouldThrowExceptionInvalidPuzzleMinimumClues()
         {
-            // url
+            // Prepare
             string[] data =
             [
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
+                "         ",
+                "  1      ",
+                "    2    ",
+                "      3  ",
+                "        4",
+                "         ",
+                "         ",
+                "         ",
+                "         ",
             ];
 
-            var solved = new Sudoku().Solve(data);
+            var sudoku = new Sudoku();
 
-            solved.Should().BeTrue();
+            // Act/Assert
+            sudoku.Invoking(a => a.Solve(data))
+                .Should().Throw<ArgumentException>()
+                .Where(e => e.Message.Equals("Invalid puzzle. Minimum number of clues: 17"));
+        }
+
+        [TestMethod]
+        [DataRow([" X   1 3 ", "231 9    ", " 65  31  ", "6789243  ", "1 3 5   6", "   1367  ", "  936 57 ", "  6 19843", "3        "])]
+        [DataRow([" 0   1 3 ", "231 9    ", " 65  31  ", "6789243  ", "1 3 5   6", "   1367  ", "  936 57 ", "  6 19843", "3        "])]
+        [DataRow([" $   1 3 ", "231 9    ", " 65  31  ", "6789243  ", "1 3 5   6", "   1367  ", "  936 57 ", "  6 19843", "3        "])]
+        public void ShouldThrowExceptionInvalidPuzzleInvalidChars(string[] data)
+        {
+            // Prepare
+            var sudoku = new Sudoku();
+
+            // Act/Assert
+            sudoku.Invoking(a => a.Solve(data))
+                .Should().Throw<ArgumentException>()
+                .Where(e => e.Message.Equals("Invalid puzzle. Allowed characters: 1-9 and ' ' (space)"));
+        }
+
+        [TestMethod]
+        [DataRow(["12", "34"])]
+        [DataRow(["     1 3 ", "231 9    ", " 65  31  ", "6789243  ", "1 3 5   6", "   1367  ", "  936 57 ", "  6 19843"])]
+        [DataRow(["  1 3 ", "29    ", " 631  ", "6243  ", "15   6", " 367  ", "  936 ", " 19843", "3     "])]        
+        [DataRow(["     1 3 ", "231 9    ", " 65  31  ", "6789243  ", "1 3 5   6", "   1367  ", "  936 57 ", "  6 19843", "3        ", "123456789"])]
+        public void ShouldThrowExceptionInvalidPuzzleDimensions(string[] data)
+        {
+            // Prepare
+            var sudoku = new Sudoku();
+
+            // Act/Assert
+            sudoku.Invoking(a => a.Solve(data))
+                .Should().Throw<ArgumentException>()
+                .Where(e => e.Message.Equals("Invalid puzzle. Expected 9x9 matrix."));
+        }
+
+        [TestMethod]
+        [DataRow(["44   9   ", "      3  ", "5  83 96 ", " 5   8 9 ", " 7  5    ", "6   432 7", "7       6", "8   64   ", "3 52  4 8"])] // Row
+        [DataRow(["4    9   ", "      3  ", "5  83 96 ", " 5   8 9 ", " 7  5    ", "6   432 7", "7       6", "8   64   ", "4 52  4 8"])] // Column
+        [DataRow(["4    9   ", "      3  ", "54 83 96 ", " 5   8 9 ", " 7  5    ", "6   432 7", "7       6", "8   64   ", "3 52  4 8"])] // Block
+        public void ShouldThrowExceptionInvalidPuzzleDuplicateValues(string[] data)
+        {
+            // Prepare
+            var sudoku = new Sudoku();
+
+            // Act/Assert
+            sudoku.Invoking(a => a.Solve(data))
+                .Should().Throw<ArgumentException>()
+                .Where(e => e.Message.Contains("duplicate values found."));
         }
 
         [TestMethod ("Test first three simple strategies")]
-        // Test first three simple strategies:
+        // Test folowing simple strategies:
         // 1. Basic Candidate Elimination
         // 2. Naked Singles
         // 3. Hidden Singles
         public void ShouldSolveAFourStarSudoku()
         {
+
             // 4 star puzzle page 12
             string[] data =
             [
@@ -51,13 +99,13 @@ namespace SudokuSolverTests
                 "9 72  8  ",
             ];
 
-            var solved = new Sudoku().Solve(data);
+            int[,] result = new Sudoku().Solve(data);
 
-            solved.Should().BeTrue();
+            IsSudokuSolved(result).Should().BeTrue();
         }
         
-        [TestMethod]
-        // Test 4. Naked Pairs/Triples/Quads
+        [TestMethod ("Test Naked Pairs/Triples/Quads")]
+        // 4. Naked subset strategies
         // Naked Pair (n = 2)
         // Naked Triple (n = 3) 
         // Naked Quad (n = 4)
@@ -77,13 +125,13 @@ namespace SudokuSolverTests
                 "38       ",
             ];
 
-            var solved = new Sudoku().Solve(data);
+            int[,] result = new Sudoku().Solve(data);
 
-            solved.Should().BeTrue();
+            IsSudokuSolved(result).Should().BeTrue();
         }
 
-        [TestMethod("Test Hidden Pair")]
-        // 5a. Hidden Pairs
+        [TestMethod("Test Hidden Pairs")]
+        // 5a. Hidden Pairs strategy
         public void ShouldSolveHiddenPair()
         {
             // url https://www.sudokuwiki.org/hidden_candidates
@@ -100,86 +148,39 @@ namespace SudokuSolverTests
                 "         ",
             ];
 
-            var solved = new Sudoku().Solve(data);
+            int[,] result = new Sudoku().Solve(data);
 
-            solved.Should().BeTrue();
+            IsSudokuSolved(result).Should().BeTrue();
         }
 
         [TestMethod("Test Hidden Triple")]
-        // 5b. Hidden Triples
+        // 5b. Hidden Triples strategy
         public void ShouldSolveHiddenTriple()
         {
-            // url https://www.sudokuwiki.org/hidden_candidates
+            // url https://hodoku.sourceforge.net/en/tech_hidden.php
             string[] data =
             [
-                "65  87 24",
-                "   649 5 ",
-                " 4  25   ",
-                "57 438 61",
-                "   5 1   ",
-                "31 9 2 85",
-                "   89  1 ",
-                "   213   ",
-                "13 75  98",
+                "5  62  37",
+                "  489    ",
+                "    5    ",
+                "93       ",
+                " 2    6 5",
+                "7       3",
+                "     9   ",
+                "      7  ",
+                "68 57   2",
             ];
 
-            var solved = new Sudoku().Solve(data);
+            int[,] result = new Sudoku().Solve(data);
 
-            solved.Should().BeTrue();
-        }
-
-        [TestMethod("Test Hidden Quadruple")]
-        // 5c. Hidden Quads
-        public void ShouldSolveHiddenQuad()
-        {
-            // url https://www.sudokuwiki.org/hidden_candidates
-            string[] data =
-            [
-                "65  87 24",
-                "   649 5 ",
-                " 4  25   ",
-                "57 438 61",
-                "   5 1   ",
-                "31 9 2 85",
-                "   89  1 ",
-                "   213   ",
-                "13 75  98",
-            ];
-
-            var solved = new Sudoku().Solve(data);
-
-            solved.Should().BeTrue();
-        }
+            IsSudokuSolved(result).Should().BeTrue();
+        }        
 
         [TestMethod("Test PointingPairs and PointingTriples")]
-        // Test 6. Pointing Pairs/Triples
-        public void ShouldSolvePointingPairsTriples()
+        // Test 6. Locked Candidates; Pointing Pairs/Triples
+        public void ShouldSolveLockedCandidates()
         {
-            // https://sudoku.com/sudoku-rules/pointing-pairs/
-            // https://sudoku.com/sudoku-rules/pointing-triples/
-
-            string[] data =
-            [
-                "     1 3 ",
-                "231 9    ",
-                " 65  31  ",
-                "6789243  ",
-                "1 3 5   6",
-                "   1367  ",
-                "  936 57 ",
-                "  6 19843",
-                "3        ",
-            ];
-
-            var solved = new Sudoku().Solve(data);
-
-            solved.Should().BeTrue();
-        }
-
-        [TestMethod]
-        public void ShouldLockedCandidates()
-        {
-            // https://www.livesudoku.com/en/sudoku/evil/ = random
+            // https://www.livesudoku.com/en/sudoku/evil/ 
             string[] data =
             [
                 " 8     5 ",
@@ -193,16 +194,18 @@ namespace SudokuSolverTests
                 "         ",
             ];
 
-            var solved = new Sudoku(true).Solve(data);
+            int[,] result = new Sudoku().Solve(data);
 
-            solved.Should().BeTrue();
+            IsSudokuSolved(result).Should().BeTrue();
         }
 
-        [TestMethod]
+        [TestMethod ("Test X-Wing (columns)")]
+        // 7a. X-Wing strategy (columns)
+        // Also tests Locked candidates; Claiming Pairs/Triples
         public void ShouldSolveXWingColumns()
         {
             // https://www.sudoku9x9.com/expert/
-            // X-Wing columns
+            // 
             string[] data =
             [
                 "      3 9",
@@ -216,12 +219,13 @@ namespace SudokuSolverTests
                 "4  3   1 ",
             ];
 
-            var solved = new Sudoku().Solve(data);
+            int[,] result = new Sudoku().Solve(data);
 
-            solved.Should().BeTrue();
+            IsSudokuSolved(result).Should().BeTrue();
         }
 
-        [TestMethod]
+        [TestMethod("Test X-Wing (rows)")]
+        // 7b. X-Wing strategy (rows)
         public void ShouldSolveXWingRows()
         {
             // https://www.sudoku9x9.com/expert/
@@ -239,12 +243,13 @@ namespace SudokuSolverTests
                 " 7    8 9",
             ];
 
-            var solved = new Sudoku().Solve(data);
+            int[,] result = new Sudoku().Solve(data);
 
-            solved.Should().BeTrue();
+            IsSudokuSolved(result).Should().BeTrue();
         }
 
-        [TestMethod]
+        [TestMethod("Test Y-Wing")]
+        // 8. Y-Wing strategy
         public void ShouldSolveYWing()
         {
             // https://www.sudokuwiki.org/Y_Wing_Strategy
@@ -262,55 +267,54 @@ namespace SudokuSolverTests
                 "2 7 86  9",
             ];
 
-            var solved = new Sudoku().Solve(data);
+            int[,] result = new Sudoku().Solve(data);
 
-            solved.Should().BeTrue();
+            IsSudokuSolved(result).Should().BeTrue();
         }
 
-        [TestMethod]
-        public void ShouldSolveXYZ()
+        [TestMethod("Test 5 five star puzzles")]
+      //[DataRow(["         ", "         ", "         ", "         ", "         ", "         ", "         ", "         ", "         "])]
+        [DataRow(["     1 3 ", "231 9    ", " 65  31  ", "6789243  ", "1 3 5   6", "   1367  ", "  936 57 ", "  6 19843", "3        "])]
+        [DataRow(["4    9   ", "      3  ", "5  83 96 ", " 5   8 9 ", " 7  5    ", "6   432 7", "7       6", "8   64   ", "3 52  4 8"])]
+        [DataRow([" 2   47  ", "  82     ", "9  6     ", "     83 6", "5 63    4", " 9 5  17 ", "      9  ", "64   1   ", "       18"])]
+        public void ShouldSolveFiveStarPuzzles(string[] data)
         {
-            // https://www.sudokuwiki.org/XYZ_wing
-            // Y-Wing
+            int[,] result = new Sudoku().Solve(data);
+
+            IsSudokuSolved(result).Should().BeTrue();
+        }
+
+        [TestMethod ("Test unsolved")]
+        // Solution needs following unimplemented strategies:
+        // Hidden Quads
+        // X-Wing
+        // XYZ-Wing
+        // Color Wing
+        // Almost Locked Set
+        public void ShouldNotSolveThisOne()
+        {
+            // url https://www.sudokuwiki.org/hidden_candidates
             string[] data =
             [
-                " 92  175 ",
-                "5  2    8",
-                "    3 2  ",
-                " 75  496 ",
-                "2   6  75",
-                " 697   3 ",
-                "  8 9  2 ",
-                "7    3 89",
-                "9 38   4 "
+                "65  87 24",
+                "   649 5 ",
+                " 4  25   ",
+                "57 438 61",
+                "   5 1   ",
+                "31 9 2 85",
+                "   89  1 ",
+                "   213   ",
+                "13 75  98",
             ];
 
-            var solved = new Sudoku().Solve(data);
+            int[,] result = new Sudoku().Solve(data);
 
-            solved.Should().BeTrue();
+            IsSudokuSolved(result).Should().BeFalse();
         }
 
-        [TestMethod]
-        public void ShouldSolveThisOne()
+        private static bool IsSudokuSolved(int[,] sudokuArray)
         {
-            // https://www.taupierbw.be/SudokuCoach/SC_PointingTriple.shtml            
-            string[] data =
-            [
-                "   5 3624",
-                "324  7 16",
-                "    24 3 ",
-                "1     3  ",
-                "2 6 719 4",
-                "  9     1",
-                "   6834  ",
-                "4 271   3",
-                " 834 21  ",
-            ];
-
-            var solved = new Sudoku().Solve(data);
-
-            solved.Should().BeTrue();
+            return sudokuArray.Cast<int>().All(value => value > 0);
         }
-
     }
 }

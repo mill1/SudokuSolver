@@ -24,9 +24,7 @@
 
         public static bool IntersectsWith(this Field sourceField, Field field)
         {
-            return sourceField.OtherRowFields().Contains(field) ||
-                   sourceField.OtherColumnFields().Contains(field) ||
-                   sourceField.OtherBlockFields().Contains(field);
+            return sourceField.OtherPeers().Contains(field);
         }
 
         public static IEnumerable<Field> OtherRowFields(this Field field)
@@ -46,45 +44,42 @@
 
         public static IEnumerable<Field> OtherPeers(this Field field)
         {
-            // Get all unique fields from the row, column, and block excluding the current field
-            var rowPeers = field.OtherRowFields();
-            var columnPeers = field.OtherColumnFields();
-            var blockPeers = field.OtherBlockFields();
-
             // Combine all peers and remove duplicates using Distinct
-            return rowPeers.Concat(columnPeers)
-                           .Concat(blockPeers)
-                           .Distinct();  // Ensure no duplicates (if a field shares both row and block, for example)
+            return field.OtherRowFields()
+           .Concat(field.OtherColumnFields())
+           .Concat(field.OtherBlockFields())
+           .Distinct();  // Ensure no duplicates (if a field shares both row and block, for example)
         }
 
         public static bool ContainsValue(this IEnumerable<Field> fields, int value)
         {
-            return fields.ToList().Any(x => x.Value == value);
+            return fields.Any(x => x.Value == value);
         }
 
         public static bool CandidatesContainsValue(this IEnumerable<Field> fields, int value)
         {
-            return fields.ToList().Any(x => x.Candidates.Contains(value));
+            return fields.Any(x => x.Candidates.Contains(value));
         }
 
-        public static int RemoveValueFromCandidates(this IEnumerable<Field> fields, int value)
+        public static int RemoveCandidateFromFields(this IEnumerable<Field> fields, int candidate)
         {
             int nrOfCandidatesRemoved = 0;
 
             foreach (var field in fields)
-            {
-                nrOfCandidatesRemoved += RemoveValueFromCandidates(field, value);
-            }
+                nrOfCandidatesRemoved += RemoveCandidateFromField(field, candidate);
 
             return nrOfCandidatesRemoved;
         }
 
-        public static int RemoveValueFromCandidates(this Field field, int value)
+        public static int RemoveCandidateFromField(this Field field, int value)
         {
             if (field.Candidates.Contains(value))
-            {               
+            {
                 var remove = field.Candidates.Single(c => c == value);
                 field.Candidates.Remove(remove);
+
+                if (field.Candidates.Count == 0)
+                     throw new InvalidOperationException($"No candidates left after removing value {value}. Field: {field}");
 
                 if (Settings.Debug)
                     Console.WriteLine($"Removed candidate {value} from {field}...");
