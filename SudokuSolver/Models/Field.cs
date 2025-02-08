@@ -1,4 +1,4 @@
-﻿namespace SudokuSolver
+﻿namespace SudokuSolver.Models
 {
     internal class Field(int row, int column, List<Field> fields)
     {

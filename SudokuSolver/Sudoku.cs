@@ -1,4 +1,5 @@
 ﻿using SudokuSolver.Extensions;
+using SudokuSolver.Models;
 
 namespace SudokuSolver
 {
