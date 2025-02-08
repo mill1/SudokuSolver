@@ -273,10 +273,11 @@ namespace SudokuSolverTests
         }
 
         [TestMethod("Test 5 five star puzzles")]
-      //[DataRow(["         ", "         ", "         ", "         ", "         ", "         ", "         ", "         ", "         "])]
         [DataRow(["     1 3 ", "231 9    ", " 65  31  ", "6789243  ", "1 3 5   6", "   1367  ", "  936 57 ", "  6 19843", "3        "])]
         [DataRow(["4    9   ", "      3  ", "5  83 96 ", " 5   8 9 ", " 7  5    ", "6   432 7", "7       6", "8   64   ", "3 52  4 8"])]
         [DataRow([" 2   47  ", "  82     ", "9  6     ", "     83 6", "5 63    4", " 9 5  17 ", "      9  ", "64   1   ", "       18"])]
+        [DataRow(["9 46     ", "       18", " 2  5 46 ", "5    1 4 ", "4    2   ", "    9    ", " 8    7  ", " 51  83  ", "   5    6"])]
+        [DataRow(["5  96   4", "  2    8 ", "        3", "      2 7", "     2   ", " 4 75   6", "   4 9   ", "4    13 2", "    28  5"])]
         public void ShouldSolveFiveStarPuzzles(string[] data)
         {
             int[,] result = new Sudoku().Solve(data);
