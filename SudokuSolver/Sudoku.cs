@@ -1,14 +1,14 @@
 ﻿using SudokuSolver.Extensions;
 
 namespace SudokuSolver
-{    
+{
     public class Sudoku
     {
         private readonly Field[,] _fields2D;
-        private readonly List<Field> _fields = [];
+        private readonly List<Field> _fields = [];        
 
         public Sudoku() : this(false)
-        {                
+        {
         }
 
         public Sudoku(bool debug)
@@ -29,588 +29,427 @@ namespace SudokuSolver
             }
         }
 
-        public bool Solve(string[] data)
+        public int[,] Solve(string[] data)
         {
             try
             {
                 Initialize(data);
-                var solved = TrySolvePuzzle();                
-                PrintResult(solved);
+                ValidateInput();                    
+                SolveSudoku();
+                PrintResult();
 
-                return solved;
+                return ConvertFieldsToArray();
             }
             catch (Exception e)
             {
                 WriteLine(e, ConsoleColor.Red);
-                return false;
+                WriteLine(this, ConsoleColor.Red);
+                throw;
             }
         }
 
-        private bool TrySolvePuzzle()
+        private void SolveSudoku()
         {
-            int iteration = 0;
-            int foundSolutions = 1;
-            int nrOfCandidatesRemoved = 0;
+            int _iteration = 0;
 
-            while (foundSolutions > 0 || nrOfCandidatesRemoved > 0)
+            while (!SudokuIsSolved())
             {
-                iteration++;
+                _iteration++;
 
                 if (Settings.Debug)
                 {
-                    //WriteLine($"Iteration: {iteration}", ConsoleColor.Blue);
-                    //WriteLine(this, ConsoleColor.Cyan);
-                    //PrintDebugInformation(true);
+                    WriteLine($"Iteration: {_iteration}");
+                    WriteLine(this, ConsoleColor.Cyan);
                 }
 
-                nrOfCandidatesRemoved = TrySlashing();
-                foundSolutions = CheckHiddenSingles();
+                if (TryBasicCandidateElimination() > 0) continue;
+                if (TryNakedSingles() > 0) continue;
+                if (TryHiddenSingles() > 0) continue;
+                if (TryNakedSubsets() > 0) continue;
+                if (TryHiddenSubsets() > 0) continue;
+                if (TryLockedCandidates() > 0) continue;
+                if (TryXWing() > 0) continue;
+                if (TryYWing() > 0) continue;
 
-                nrOfCandidatesRemoved += TryEliminationByValuesInSegments();
-                foundSolutions += CheckNakedSingles();
-
-                if (_fields.Count(f => f.Value != null) == _fields.Count)
-                    break;
-
-                if (foundSolutions == 0)
-                    nrOfCandidatesRemoved = ApplyAdvancedStrategies();
-            }
-
-            return _fields.Count(f => f.Value != null) == _fields.Count;
+                break; // No more eliminations possible
+            }            
         }
 
-        private void PrintResult(bool solved)
+        // 1. Per value try to remove candidates from other fields within the same segment (row, column or block).
+        private int TryBasicCandidateElimination()
         {
-            if (solved)
+            int totalCandidatesRemoved = 0;
+
+            foreach (var field in _fields.Where(f => f.Value == null))
             {
-                CheckValiditySolution();
-                WriteLine("Solved:", ConsoleColor.Green);
+                var existingValues = field.OtherRowFields().Select(f => f.Value)
+                    .Concat(field.OtherColumnFields().Select(f => f.Value))
+                    .Concat(field.OtherBlockFields().Select(f => f.Value))
+                    .Where(v => v.HasValue)
+                    .Select(v => v.Value)
+                    .Distinct()
+                    .ToList();
+
+                foreach (var value in existingValues)
+                    totalCandidatesRemoved += field.RemoveCandidateFromField(value);
             }
-            else
-                WriteLine("Not solved:", ConsoleColor.DarkMagenta);
 
-            WriteLine(this, ConsoleColor.Yellow);
+            return totalCandidatesRemoved;
         }
 
-        // Advanced strategies. 'TryStrategyX' means 'try to eliminate candidates by applying strategy X'.
-        private int ApplyAdvancedStrategies()
+        // 2. When a field has only one candidate left.
+        private int TryNakedSingles()
         {
-            int nrOfCandidatesRemoved = TryStripClothedCandidates();
+            int nrOfValuesSet = 0;
 
-            nrOfCandidatesRemoved += TryNakedCombinations();
-
-            if (nrOfCandidatesRemoved == 0)
-                nrOfCandidatesRemoved = TryAdvancedSlashing();
-
-            if (nrOfCandidatesRemoved == 0)
-                nrOfCandidatesRemoved = TryTwoOptionsWithinBlockGroups();
-
-            if (nrOfCandidatesRemoved == 0)
-                nrOfCandidatesRemoved = TryLockedCandidates();                    
-
-            if (nrOfCandidatesRemoved == 0)
-                nrOfCandidatesRemoved = TryXWing();
-
-            if (nrOfCandidatesRemoved == 0)
-                nrOfCandidatesRemoved = TryYWing();
-
-            return nrOfCandidatesRemoved;
-        }
-
-        // Per value try to remove candidates from other fields within the same segment (row, column or block).
-        private int TrySlashing()
-        {
-            int nrOfCandidatesRemoved = 0;
-
-            foreach (var field in _fields)
+            foreach (var field in _fields.Where(f => f.Candidates.Count == 1 && !f.Value.HasValue))
             {
-                if (field.Value != null)
-                {
-                    nrOfCandidatesRemoved += field.OtherRowFields().RemoveValueFromCandidates((int)field.Value);
-                    nrOfCandidatesRemoved += field.OtherColumnFields().RemoveValueFromCandidates((int)field.Value);
-                    nrOfCandidatesRemoved += field.OtherBlockFields().RemoveValueFromCandidates((int)field.Value);
-                }
+                int value = field.Candidates.First();
+                field.Value = value;
+                field.Candidates.Clear();
+                nrOfValuesSet++;
+
+                if (Settings.Debug)
+                    WriteLine($"Found solution (naked singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
+
+                // Remove this value from candidates in the same row, column, and block
+                field.OtherPeers().RemoveCandidateFromFields(value);
             }
 
-            return nrOfCandidatesRemoved;
+            return nrOfValuesSet;
         }
 
-        // Try to find a solution by asserting that all other fields do not contain the value as a candidate in any segment.
-        private int CheckHiddenSingles()
+        // 3. When a candidate appears only once in a segment, even if other candidates exist.
+        private int TryHiddenSingles()
         {
-            int nrOfSolutionsFound = 0;
+            int nrOfValuesSet = 0;
+
+            for (int i = 1; i <= 9; i++)
+            {
+                nrOfValuesSet += FindHiddenSinglesInSegment(_fields.Rows(i));
+                nrOfValuesSet += FindHiddenSinglesInSegment(_fields.Columns(i));
+                nrOfValuesSet += FindHiddenSinglesInSegment(_fields.Blocks(i));
+            }
+
+            return nrOfValuesSet;
+        }
+
+        private int FindHiddenSinglesInSegment(IEnumerable<Field> segment)
+        {
+            int nrOfValuesSet = 0;
 
             for (int value = 1; value <= 9; value++)
             {
-                foreach (var field in _fields)
+                var candidateFields = segment.Where(f => f.Candidates.Contains(value)).ToList();
+
+                // If the candidate appears in exactly one field, it's a Hidden Single
+                if (candidateFields.Count == 1)
                 {
-                    if (field.Value == null)
+                    var field = candidateFields.First();
+
+                    if (!field.Value.HasValue)
                     {
-                        if (!field.OtherRowFields().CandidatesContainsValue(value) ||
-                            !field.OtherColumnFields().CandidatesContainsValue(value) ||
-                            !field.OtherBlockFields().CandidatesContainsValue(value))
-                        {
-                            if (!field.Candidates.Contains(value))
-                                throw new ArgumentException($"Solution value not found in candidates: {field}");
+                        field.Value = value;
+                        field.Candidates.Clear();
+                        nrOfValuesSet++;
 
-                            field.Value = value;
-                            field.Candidates = [value];
-                            nrOfSolutionsFound++;
-
-                            if (Settings.Debug)
-                                WriteLine($"Found solution (Check hidden singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
-                        }
+                        if (Settings.Debug)
+                            WriteLine($"Found solution (hidden singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
                     }
+
+                    // Remove this value from candidates in the same row, column, and block
+                    field.OtherPeers().RemoveCandidateFromFields(value);
                 }
             }
-            return nrOfSolutionsFound;
+
+            return nrOfValuesSet;
         }
 
-        // Per field try to eliminate candidates based on the values in the segments the field is part of.
-        private int TryEliminationByValuesInSegments()
+        // 4. Remove shared candidates from other cells when multiple cells have the exact same candidates.
+        private int TryNakedSubsets()
         {
-            int nrOfCandidatesRemoved = 0;
-
-            foreach (var field in _fields)
-            {
-                if (field.Value == null)
-                {
-                    for (int value = 1; value <= 9; value++)
-                    {
-                        if (field.OtherRowFields().ContainsValue(value))
-                            nrOfCandidatesRemoved += field.RemoveValueFromCandidates(value);
-
-                        if (field.OtherColumnFields().ContainsValue(value))
-                            nrOfCandidatesRemoved += field.RemoveValueFromCandidates(value);
-
-                        if (field.OtherBlockFields().ContainsValue(value))
-                            nrOfCandidatesRemoved += field.RemoveValueFromCandidates(value);
-                    }
-                }
-            }
-            return nrOfCandidatesRemoved;
-        }
-
-        // Try to find a solution by asserting per field that only one candidate is left.
-        private int CheckNakedSingles()
-        {
-            int solutionsFound = 0;
-
-            foreach (var field in _fields.Where(f => f.Candidates.Count == 1))
-            {
-                if (field.Value == null)
-                {
-                    if (field.OtherRowFields().ContainsValue(field.Candidates[0]) ||
-                        field.OtherColumnFields().ContainsValue(field.Candidates[0]) ||
-                        field.OtherBlockFields().ContainsValue(field.Candidates[0]))
-                        throw new ArgumentException($"Invalid single candidate: {field.Candidates[0]}! Field: {field}");
-
-                    field.Value = field.Candidates[0];
-                    solutionsFound++;
-
-                    if (Settings.Debug)
-                        WriteLine($"Found solution (Check naked singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
-                }
-            }
-            return solutionsFound;
-        }
-
-        private int TryTwoOptionsWithinBlockGroups()
-        {
-            // There are six 'block groups'; three horizontal and three vertical;
-            // For each block group check the following for values 1-9 (example: horizontal): 
-            // Check if a value will only fit in the same TWO rows regarding two blocks.
-            // If so then the OTHER row w.r. to the OTHER block cannot contain that value.
-            // The same is true regarding vertical block groups.
-
-            // Horizontal            
-            var blockGroups = new List<List<Field>>
-            {
-                _fields.Where(f => new[] { 1, 2, 3 }.Contains(f.Block)).ToList(),
-                _fields.Where(f => new[] { 4, 5, 6 }.Contains(f.Block)).ToList(),
-                _fields.Where(f => new[] { 7, 8, 9 }.Contains(f.Block)).ToList(),
-            };
-            int nrOfCandidatesRemovedRows = CheckTwoOptionsWithinBlockGroups(blockGroups, horizontal:true);
-
-            // Vertical
-            blockGroups = new List<List<Field>>
-            {
-                _fields.Where(f => new[] { 1, 4, 7 }.Contains(f.Block)).ToList(),
-                _fields.Where(f => new[] { 2, 5, 8 }.Contains(f.Block)).ToList(),
-                _fields.Where(f => new[] { 3, 6, 9 }.Contains(f.Block)).ToList()
-            };
-            int nrOfCandidatesRemovedColumns = CheckTwoOptionsWithinBlockGroups(blockGroups, horizontal: false);
-
-            return nrOfCandidatesRemovedRows + nrOfCandidatesRemovedColumns;
-        }
-
-        private int CheckTwoOptionsWithinBlockGroups(List<List<Field>> blockGroups, bool horizontal)
-        {
-            int nrOfCandidatesRemoved = 0;
-
-            foreach (var blockGroup in blockGroups)
-            {
-                for (int value = 1; value <= 9; value++)
-                {
-                    var blockGroupData = GetBlockData(value, blockGroup);
-
-                    if (horizontal)
-                        nrOfCandidatesRemoved += CheckValueCanFitInTwoRowsInTwoBlocksOnly(value, blockGroupData);                            
-                    else // vertical
-                        nrOfCandidatesRemoved += CheckValueCanFitInTwoColumnsInTwoBlocksOnly(value, blockGroupData);
-                }
-            }
-            return nrOfCandidatesRemoved;
-        }
-
-        private List<BlockData> GetBlockData(int value, List<Field> blockGroup)
-        {
-            return new List<BlockData>()
-            {
-                 ResolveBlockData(value, blockGroup.Where(b => b.Block == blockGroup[0].Block).ToList()),
-                 ResolveBlockData(value, blockGroup.Where(b => b.Block == blockGroup[3].Block).ToList()),
-                 ResolveBlockData(value, blockGroup.Where(b => b.Block == blockGroup[6].Block).ToList()),
-            };
-        }
-
-        private static BlockData ResolveBlockData(int value, List<Field> block)
-        {
-            return new() 
-            { 
-                Value = value, 
-                Block = block, 
-                RowsContainingValue = ResolveRowsContainingValue(value, block), 
-                ColumnsContainingValue = ResolveColumnsContainingValue(value, block) 
-            };
-        }
-
-        private int CheckValueCanFitInTwoRowsInTwoBlocksOnly(int value, List<BlockData> blockData)
-        {
-            int nrOfCandidatesRemoved = 0;
-
-            var counts = blockData.Select(r => r.RowsContainingValue.Count());
-            if (!(counts.Count(c => c == 2) == 2 && counts.Contains(3)))
-                return 0;
-
-            // Check if the two rows where the value can fit are identical for both
-            var resultsTwoRows = blockData.Where(r => r.RowsContainingValue.Count() == 2).ToList();
-            var rowsTwoFirst = resultsTwoRows[0].RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct().ToList();
-            var rowsTwoSecond = resultsTwoRows[1].RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct().ToList();
-
-            if (!(rowsTwoFirst[0] == rowsTwoSecond[0] && rowsTwoFirst[1] == rowsTwoSecond[1]))
-                return 0;
-
-            // Resolve the row id's of the block where the value will fit in all three rows. 
-            var rowsTwo = resultsTwoRows[0].RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct();
-            var resultThreeRows = blockData.Where(r => r.RowsContainingValue.Count() == 3).First();
-            var rowsThree = resultThreeRows.RowsContainingValue.SelectMany(g => g).Select(f => f.Row).Distinct();
-
-            // Remove candidates from the block regarding the rowsTwo rows
-            foreach (var row in rowsTwo)
-            {
-                var targetFields = resultThreeRows.Block.Where(f => f.Row == row);
-                nrOfCandidatesRemoved += targetFields.RemoveValueFromCandidates(value);
-            }
-            return nrOfCandidatesRemoved;
-        }
-
-        private static int CheckValueCanFitInTwoColumnsInTwoBlocksOnly(int value, List<BlockData> blockData)
-        {
-            int nrOfCandidatesRemoved = 0;
-
-            var counts = blockData.Select(r => r.ColumnsContainingValue.Count());
-            if (!(counts.Count(c => c == 2) == 2 && counts.Contains(3)))
-                return 0;
-
-            // Check if the two columns where the value can fit are identical for both
-            var resultsTwoColumns = blockData.Where(r => r.ColumnsContainingValue.Count() == 2).ToList();
-            var columnsTwoFirst = resultsTwoColumns[0].ColumnsContainingValue.SelectMany(g => g).Select(f => f.Column).Distinct().ToList();
-            var columnsTwoSecond = resultsTwoColumns[1].ColumnsContainingValue.SelectMany(g => g).Select(f => f.Column).Distinct().ToList();
-
-            if (!(columnsTwoFirst[0] == columnsTwoSecond[0] && columnsTwoFirst[1] == columnsTwoSecond[1]))
-                return 0;
-
-            // Resolve the column id's of the block where the value will fit in all three columns. 
-            var resultTwoColumns = blockData.Where(r => r.ColumnsContainingValue.Count() == 2).First();
-            var columnsTwo = resultTwoColumns.ColumnsContainingValue.SelectMany(g => g).Select(f => f.Column).Distinct();
-            var resultThreeColumns = blockData.Where(r => r.ColumnsContainingValue.Count() == 3).First();
-            var columnsThree = resultThreeColumns.ColumnsContainingValue.SelectMany(g => g).Select(f => f.Column).Distinct();
-
-            // Remove candidates from the block regarding the columnsTwo columns
-            foreach (var column in columnsTwo)
-            {
-                var targetFields = resultThreeColumns.Block.Where(f => f.Column == column);
-                nrOfCandidatesRemoved += targetFields.RemoveValueFromCandidates(value);
-            }
-            return nrOfCandidatesRemoved;
-        }
-
-        private static IEnumerable<IGrouping<int, Field>> ResolveRowsContainingValue(int value, List<Field> block)
-        {
-            return block.Where(f => f.Candidates.Contains(value)).GroupBy(f => f.Row);
-        }
-
-        private static IEnumerable<IGrouping<int, Field>> ResolveColumnsContainingValue(int value, List<Field> block)
-        {
-            return block.Where(f => f.Candidates.Contains(value)).GroupBy(f => f.Column);
-        }
-
-        // Identify situations where, regarding a segment, two fields contain only two different possible values (or three in the case of three fields, etc.)
-        // For example, in block 1, fields 1 and 3 contain candidates with the possible values 4 and 8.
-        // Block 1, field 1; Candidates: 4 5 7 8
-        // Block 1, field 3; Candidates: 4 5 8
-        // In such cases, remove the other candidates (5 and 7) from fields 1 and 3. This applies to all segments ( blocks, rows, and columns).
-        private int TryStripClothedCandidates()
-        {            
             int nrOfCandidatesRemoved = 0;
 
             for (int candidateCount = 2; candidateCount <= 4; candidateCount++)
             {
                 for (int i = 1; i <= 9; i++)
                 {
-                    nrOfCandidatesRemoved += CheckFieldsWithSimilarCandidates(_fields.Blocks(i), candidateCount);
-                    nrOfCandidatesRemoved += CheckFieldsWithSimilarCandidates(_fields.Rows(i), candidateCount);
-                    nrOfCandidatesRemoved += CheckFieldsWithSimilarCandidates(_fields.Columns(i), candidateCount);
+                    nrOfCandidatesRemoved += FindFieldsWithSimilarCandidates(_fields.Blocks(i), candidateCount);
+                    nrOfCandidatesRemoved += FindFieldsWithSimilarCandidates(_fields.Rows(i), candidateCount);
+                    nrOfCandidatesRemoved += FindFieldsWithSimilarCandidates(_fields.Columns(i), candidateCount);
                 }
             }
 
             return nrOfCandidatesRemoved;
         }
 
-        // Try to look 'naked pairs'; if in a segment two field contain the same two candidates then those values can only go in those two fields.
-        // As a consequence those candidates maybe stripped from the other fields in that segment (row, column or block)
-        private int TryNakedCombinations()
+        private static int FindFieldsWithSimilarCandidates(IEnumerable<Field> fields, int candidateCount)
         {
             int nrOfCandidatesRemoved = 0;
 
-            IEnumerable<Field> fields;
+            // Generate candidate combinations based on the input candidateCount
+            var candidateCombinations = GetCombinations(Enumerable.Range(1, 9).ToList(), candidateCount);
 
-            for (int i = 1; i <= 9; i++)
+            foreach (var combination in candidateCombinations)
             {
-                fields = _fields.Blocks(i);
-                nrOfCandidatesRemoved += CheckNakedPairs(fields);
-                nrOfCandidatesRemoved += CheckNakedTriplets(fields);
+                var matchingFields = fields.Where(f => combination.All(c => f.Candidates.Contains(c))).ToList();
 
-                fields = _fields.Rows(i);
-                nrOfCandidatesRemoved += CheckNakedPairs(fields);
-                nrOfCandidatesRemoved += CheckNakedTriplets(fields);
-
-                fields = _fields.Columns(i);
-                nrOfCandidatesRemoved += CheckNakedPairs(fields);
-                nrOfCandidatesRemoved += CheckNakedTriplets(fields);
-            }
-
-            return nrOfCandidatesRemoved;
-        }
-
-        private static int CheckNakedPairs(IEnumerable<Field> fields)
-        {
-            int nrOfCandidatesRemoved = 0;
-            var fieldsWithTwoCandidates = fields.Where(f => f.Candidates.Count == 2);
-
-            if (fieldsWithTwoCandidates.Count() < 2)            
-                return 0;
-
-            foreach (var combination in GetCombinations(Enumerable.Range(1, 9).ToList(), 2))
-            {
-                var fieldsWithTwoIdenticalCandidates = fieldsWithTwoCandidates.Where(f => f.Candidates[0] == combination[0] && f.Candidates[1] == combination[1]).ToList();
-
-                if(fieldsWithTwoIdenticalCandidates.Count() == 2)
+                // If exactly candidateCount fields match the combination, check further
+                if (matchingFields.Count == candidateCount)
                 {
-                    // Remove the two candidates from the other fields in the segement
-                    var otherFields = fields.Except(fieldsWithTwoIdenticalCandidates);
-                    nrOfCandidatesRemoved += RemoveCandidates(combination, otherFields);
-                    break;
-                }
-            }
-            return nrOfCandidatesRemoved;
-        }
-
-        private static int CheckNakedTriplets(IEnumerable<Field> fields)
-        {
-            int nrOfCandidatesRemoved = 0;
-            var fieldsWithTwoCandidates = fields.Where(f => f.Candidates.Count == 2); // 2 is correct
-
-            if (fieldsWithTwoCandidates.Count() < 3)
-                return 0;
-
-            foreach (var combination in GetCombinations(Enumerable.Range(1, 9).ToList(), 3))
-            {
-                var fieldsWithFirstNakedTriplet = fieldsWithTwoCandidates.Where(f =>  f.Candidates[0] == combination[0] && f.Candidates[1] == combination[1]);
-                var fieldsWithSecondNakedTriplet = fieldsWithTwoCandidates.Where(f => f.Candidates[0] == combination[0] && f.Candidates[1] == combination[2]);
-                var fieldsWithThirdNakedTriplet = fieldsWithTwoCandidates.Where(f =>  f.Candidates[0] == combination[1] && f.Candidates[1] == combination[2]);
-
-                if (!(fieldsWithFirstNakedTriplet.Any() && fieldsWithSecondNakedTriplet.Any() && fieldsWithThirdNakedTriplet.Any()))
-                    continue;
-
-                if (!(fieldsWithFirstNakedTriplet.Count() == 1 && fieldsWithSecondNakedTriplet.Count() == 1 && fieldsWithThirdNakedTriplet.Count() == 1))
-                    continue;
-
-                // Remove the three candidates from the other fields in the segement
-                var otherFields = fields.Except(fieldsWithFirstNakedTriplet)
-                                        .Except(fieldsWithSecondNakedTriplet)
-                                        .Except(fieldsWithThirdNakedTriplet);
-
-                nrOfCandidatesRemoved += RemoveCandidates(combination, otherFields);
-
-            }
-            return nrOfCandidatesRemoved;
-        }
-
-        private int TryLockedCandidates()
-        {
-            int nrOfCandidatesRemoved = 0;
-
-            for (int i = 1; i <= 9; i++)
-            {
-                var block = _fields.Blocks(i).ToList();
-
-                // Per block check per row/column if a value can only fit in that row/column and not in 
-                // the field in the outside blocks.
-                nrOfCandidatesRemoved += CheckLockedCandidatesPerBlockRow(block);
-                nrOfCandidatesRemoved += CheckLockedCandidatesPerBlockColumn(block);
-            }
-            return nrOfCandidatesRemoved;
-        }
-
-        private int CheckLockedCandidatesPerBlockRow(List<Field> block)
-        {
-            int nrOfCandidatesRemoved = 0;
-
-            for (int row = block[0].Row; row <= block[0].Row + 2; row++)
-            {
-                // First get the list of values present in the row of the block.
-                var rowFields = _fields.Where(f => f.Block == block[0].Block && f.Row == row).ToList();
-                List<int> rowFieldValues = ResolveAllCandidatesBlockFields(rowFields);
-                // Then get the list of values present in the row outside the block.
-                var otherFields = _fields.Where(f => f.Block != block[0].Block && f.Row == row).ToList();
-                List<int> otherFieldValues = ResolveAllCandidatesOtherBlockFields(otherFields);
-
-                var candidates = rowFieldValues.Except(otherFieldValues).ToList();
-                var otherRowFields = block.Except(rowFields);
-
-                nrOfCandidatesRemoved += RemoveCandidates(candidates, otherRowFields);
-
-            }
-            return nrOfCandidatesRemoved;
-        }
-
-        private int CheckLockedCandidatesPerBlockColumn(List<Field> block)
-        {
-            int nrOfCandidatesRemoved = 0;
-
-            for (int column = block[0].Column; column <= block[0].Column + 2; column++)
-            {
-                // First get the list of values present in the column of the block.
-                var columnFields = _fields.Where(f => f.Block == block[0].Block && f.Column == column).ToList();
-                List<int> columnFieldValues = ResolveAllCandidatesBlockFields(columnFields);
-                // Then get the list of values present in the column outside the block.
-                var otherFields = _fields.Where(f => f.Block != block[0].Block && f.Column == column).ToList();
-                List<int> otherFieldValues = ResolveAllCandidatesOtherBlockFields(otherFields);
-
-                var candidates = columnFieldValues.Except(otherFieldValues).ToList();
-                var otherColumnFields = block.Except(columnFields);
-
-                nrOfCandidatesRemoved += RemoveCandidates(candidates, otherColumnFields);
-            }
-
-            return nrOfCandidatesRemoved;
-        }
-
-        private static List<int> ResolveAllCandidatesBlockFields(List<Field> fields)
-        {
-            return [.. fields[0].Candidates
-                .Union(fields[1].Candidates)
-                .Union(fields[2].Candidates)
-                .OrderBy(x => x)];
-        }
-
-        private static List<int> ResolveAllCandidatesOtherBlockFields(List<Field> fields)
-        {
-            return [.. fields[0].Candidates
-                .Union(fields[1].Candidates)
-                .Union(fields[2].Candidates)
-                .Union(fields[3].Candidates)
-                .Union(fields[4].Candidates)
-                .Union(fields[5].Candidates)
-                .OrderBy(x => x)];
-        }
-
-        // Google: Sudoku X-Wing strategy explained
-        private int TryXWing()
-        {
-            int totalCandidatesRemoved = 0;
-
-            // Loop through all possible candidates (1 to 9)
-            for (int candidate = 1; candidate <= 9; candidate++)
-            {
-                // Check for X-Wing patterns in both rows and columns
-                totalCandidatesRemoved += FindXWing(candidate, isRowBased: true);
-                totalCandidatesRemoved += FindXWing(candidate, isRowBased: false);
-            }
-
-            return totalCandidatesRemoved;
-        }
-
-        private int FindXWing(int candidate, bool isRowBased)
-        {
-            int candidatesRemoved = 0;
-            var lineCandidates = new Dictionary<int, List<int>>();  // Line index -> List of positions where candidate exists
-
-            // Step 1: Collect lines (rows or columns) with exactly two candidates
-            for (int line = 0; line < 9; line++)
-            {
-                var positionsWithCandidate = new List<int>();
-
-                for (int pos = 0; pos < 9; pos++)
-                {
-                    var field = isRowBased ? _fields2D[line, pos] : _fields2D[pos, line];
-                    if (field.Candidates.Contains(candidate))
+                    // Ensure that each candidate appears exactly candidateCount times
+                    bool validCombination = true;
+                    foreach (var candidate in combination)
                     {
-                        positionsWithCandidate.Add(pos);
-                    }
-                }
-
-                if (positionsWithCandidate.Count == 2)
-                {
-                    lineCandidates[line] = positionsWithCandidate;
-                }
-            }
-
-            // Step 2: Identify X-Wing patterns and eliminate candidates
-            var lines = lineCandidates.Keys.ToList();
-
-            for (int i = 0; i < lines.Count - 1; i++)
-            {
-                for (int j = i + 1; j < lines.Count; j++)
-                {
-                    var line1 = lines[i];
-                    var line2 = lines[j];
-
-                    // Check if positions match to form an X-Wing
-                    if (lineCandidates[line1].SequenceEqual(lineCandidates[line2]))
-                    {
-                        var commonPositions = lineCandidates[line1];
-
-                        // Eliminate candidate from other lines in the matched positions
-                        foreach (var pos in commonPositions)
+                        if (fields.Count(f => f.Candidates.Contains(candidate)) != candidateCount)
                         {
-                            for (int otherLine = 0; otherLine < 9; otherLine++)
+                            validCombination = false;
+                            break;
+                        }
+                    }
+
+                    if (validCombination)
+                    {
+                        // Remove other candidates from the matching fields
+                        foreach (var field in matchingFields)
+                        {
+                            var candidates = field.Candidates.ToList();
+                            foreach (int candidate in candidates)
                             {
-                                if (otherLine != line1 && otherLine != line2)
+                                if (!combination.Contains(candidate))
                                 {
-                                    var field = isRowBased ? _fields2D[otherLine, pos] : _fields2D[pos, otherLine];
-                                    candidatesRemoved += field.RemoveValueFromCandidates(candidate);
+                                    field.RemoveCandidateFromField(candidate);
+                                    nrOfCandidatesRemoved += 1;
                                 }
                             }
                         }
                     }
                 }
             }
-            return candidatesRemoved;
+            return nrOfCandidatesRemoved;
         }
 
-        // Google: Sudoku Y-Wing or XY-Wing strategy explained. A pivot has two pincers.
+        // 5. When candidates appear in exactly the same number of cells, remove other candidates from those cells
+        private int TryHiddenSubsets()
+        {
+            int nrOfCandidatesRemoved = 0;
+            
+            for (int subsetSize = 2; subsetSize <= 4; subsetSize++)
+            {
+                nrOfCandidatesRemoved += TryHiddenSubset(subsetSize);
+            }
+
+            return nrOfCandidatesRemoved;
+        }
+
+        private int TryHiddenSubset(int subsetSize)
+        {
+            int nrOfCandidatesRemoved = 0;
+
+            for (int i = 1; i <= 9; i++)
+            {
+                nrOfCandidatesRemoved += FindHiddenSubsetsInSegment(_fields.Rows(i), subsetSize);
+                nrOfCandidatesRemoved += FindHiddenSubsetsInSegment(_fields.Columns(i), subsetSize);
+                nrOfCandidatesRemoved += FindHiddenSubsetsInSegment(_fields.Blocks(i), subsetSize);
+            }
+
+            return nrOfCandidatesRemoved;
+        }
+
+        private int FindHiddenSubsetsInSegment(IEnumerable<Field> segment, int subsetSize)
+        {
+            int nrOfCandidatesRemoved = 0;
+
+            // Generate all combinations of candidates of the given subset size
+            var candidateSubsets = GetCombinations(Enumerable.Range(1, 9).ToList(), subsetSize);
+
+            foreach (var subset in candidateSubsets)
+            {
+                // Find all fields that contain at least one candidate from the subset
+                var fieldsWithSubsetCandidates = segment.Where(f => subset.Any(c => f.Candidates.Contains(c))).ToList();
+
+                // If exactly 'subsetSize' fields contain these candidates, we have a hidden subset
+                if (fieldsWithSubsetCandidates.Count == subsetSize &&
+                    subset.All(c => fieldsWithSubsetCandidates.Count(f => f.Candidates.Contains(c)) >= 1))
+                {
+                    foreach (var field in fieldsWithSubsetCandidates)
+                    {
+                        // Remove any candidates that are not part of the hidden subset
+                        var extraCandidates = field.Candidates.Except(subset).ToList();
+                        foreach (var candidate in extraCandidates)
+                        {
+                            nrOfCandidatesRemoved += field.RemoveCandidateFromField(candidate);
+                        }
+                    }
+                }
+            }
+
+            return nrOfCandidatesRemoved;
+        }
+
+        // 6. When candidates are restricted to a block within a row/column, remove them from the block outside the row/column.
+        private int TryLockedCandidates()
+        {
+            int nrOfCandidatesRemoved = 0;
+
+            // Apply Pointing for each block
+            for (int block = 1; block <= 9; block++)
+            {
+                var fieldsInBlock = _fields.Blocks(block);
+
+                for (int value = 1; value <= 9; value++)
+                {
+                    var candidateFields = fieldsInBlock.Where(f => f.Candidates.Contains(value)).ToList();
+
+                    // POINTING: Check if candidates are in a single row or column within the block
+                    var lockedRow = GetLockedRow(candidateFields);
+                    if (lockedRow.HasValue)
+                        nrOfCandidatesRemoved += EliminateFromRowOutsideBlock(block, lockedRow.Value, value);
+
+                    var lockedColumn = GetLockedColumn(candidateFields);
+                    if (lockedColumn.HasValue)
+                        nrOfCandidatesRemoved += EliminateFromColumnOutsideBlock(block, lockedColumn.Value, value);
+                }
+            }
+
+            int x = nrOfCandidatesRemoved;
+
+            // Apply Claiming for each row and column
+            for (int i = 1; i <= 9; i++)
+            {
+                for (int value = 1; value <= 9; value++)
+                {
+                    var rowFields = _fields.Rows(i).Where(f => f.Candidates.Contains(value)).ToList();
+                    var lockedBlockRow = GetLockedBlock(rowFields);
+                    if (lockedBlockRow.HasValue)
+                        nrOfCandidatesRemoved += EliminateFromBlockOutsideLine(_fields.Blocks(lockedBlockRow.Value), rowFields, value);
+
+                    var colFields = _fields.Columns(i).Where(f => f.Candidates.Contains(value)).ToList();
+                    var lockedBlockCol = GetLockedBlock(colFields);
+                    if (lockedBlockCol.HasValue)
+                        nrOfCandidatesRemoved += EliminateFromBlockOutsideLine(_fields.Blocks(lockedBlockCol.Value), colFields, value);
+                }
+            }
+
+            return nrOfCandidatesRemoved;
+        }
+
+        private int? GetLockedRow(List<Field> candidateFields)
+        {
+            if (!candidateFields.Any()) return null;
+            int row = candidateFields[0].Row;
+            return candidateFields.TrueForAll(f => f.Row == row) ? row : (int?)null;
+        }
+
+        private int? GetLockedColumn(List<Field> candidateFields)
+        {
+            if (!candidateFields.Any()) return null;
+            int column = candidateFields[0].Column;
+            return candidateFields.TrueForAll(f => f.Column == column) ? column : (int?)null;
+        }
+
+        private int? GetLockedBlock(List<Field> candidateFields)
+        {
+            if (!candidateFields.Any()) return null;
+            int block = candidateFields[0].Block;
+            return candidateFields.TrueForAll(f => f.Block == block) ? block : (int?)null;
+        }
+
+        // Eliminate candidate from row outside the block (Pointing)
+        private int EliminateFromRowOutsideBlock(int block, int row, int value)
+        {
+            var fieldsOutsideBlock = _fields.Rows(row).Where(f => f.Block != block);
+            return fieldsOutsideBlock.RemoveCandidateFromFields(value);
+        }
+
+        // Eliminate candidate from column outside the block (Pointing)
+        private int EliminateFromColumnOutsideBlock(int block, int column, int value)
+        {
+            var fieldsOutsideBlock = _fields.Columns(column).Where(f => f.Block != block);
+            return fieldsOutsideBlock.RemoveCandidateFromFields(value);
+        }
+
+        // Eliminate candidate from block outside the row/column (Claiming)
+        private int EliminateFromBlockOutsideLine(IEnumerable<Field> blockFields, List<Field> lineFields, int value)
+        {
+            var fieldsOutsideLine = blockFields.Except(lineFields);
+            return fieldsOutsideLine.RemoveCandidateFromFields(value);
+        }
+
+        private void PrintResult()
+        {
+            if (SudokuIsSolved())
+            {
+                CheckValiditySolution();
+                WriteLine("Solved", ConsoleColor.Green);
+            }
+            else
+            {
+                WriteLine("Not solved", ConsoleColor.DarkMagenta);
+                if (Settings.Debug)
+                    PrintDebugInformation(true);
+            }
+            WriteLine(this, ConsoleColor.Yellow);
+        }
+
+        // 7. Google: Sudoku X-Wing strategy explained
+        private int TryXWing()
+        {
+            int totalRemoved = 0;
+            for (int candidate = 1; candidate <= 9; candidate++)
+            {
+                totalRemoved += FindXWingPatterns(candidate, isRowBased: true);
+                totalRemoved += FindXWingPatterns(candidate, isRowBased: false);
+            }
+            return totalRemoved;
+        }
+
+        private int FindXWingPatterns(int candidate, bool isRowBased)
+        {
+            var linePatterns = Enumerable.Range(0, 9)
+                .Select(line => new { Line = line, Positions = GetCandidatePositions(line, candidate, isRowBased) })
+                .Where(p => p.Positions.Count == 2)
+                .ToList();
+
+            int removed = 0;
+            for (int i = 0; i < linePatterns.Count - 1; i++)
+            {
+                for (int j = i + 1; j < linePatterns.Count; j++)
+                {
+                    if (linePatterns[i].Positions.SequenceEqual(linePatterns[j].Positions))
+                    {
+                        removed += EliminateXWingCandidates(linePatterns[i].Positions, linePatterns[i].Line, linePatterns[j].Line, candidate, isRowBased);
+                    }
+                }
+            }
+            return removed;
+        }
+
+        private List<int> GetCandidatePositions(int line, int candidate, bool isRowBased)
+        {
+            return Enumerable.Range(0, 9)
+                .Where(pos => (isRowBased ? _fields2D[line, pos] : _fields2D[pos, line]).Candidates.Contains(candidate))
+                .ToList();
+        }
+
+        private int EliminateXWingCandidates(List<int> positions, int line1, int line2, int candidate, bool isRowBased)
+        {
+            int removed = 0;
+            foreach (var pos in positions)
+            {
+                for (int otherLine = 0; otherLine < 9; otherLine++)
+                {
+                    if (otherLine != line1 && otherLine != line2)
+                    {
+                        var field = isRowBased ? _fields2D[otherLine, pos] : _fields2D[pos, otherLine];
+                        removed += field.RemoveCandidateFromField(candidate);
+                    }
+                }
+            }
+            return removed;
+        }
+
+        // 8. Google: Sudoku Y-Wing or XY-Wing strategy explained. A pivot has two pincers.
         private int TryYWing()
         {
             int totalCandidatesRemoved = 0;
@@ -660,136 +499,41 @@ namespace SudokuSolver
                 .Where(f => f.Candidates.Contains(candidateToRemove) && pincer1.IntersectsWith(f) && pincer2.IntersectsWith(f))
                 .Select(f =>
                 {
-                    f.RemoveValueFromCandidates(candidateToRemove);
+                    f.RemoveCandidateFromField(candidateToRemove);
                     return 1;
                 })
                 .Sum();  // Sum up the number of candidates removed
         }
 
 
-        private IEnumerable<Field> GetPincerPossibilities(Field pivot, int xyCandidate, IEnumerable<Field> fields2Candidates)
+        private IEnumerable<Field> GetPincerPossibilities(Field pivot, int candidate, IEnumerable<Field> fieldsWithTwoCandidates)
         {
-            var pincerPossibilities = new List<Field>();
-
-            foreach (var pincerPossibility in fields2Candidates.Except([pivot]).Where(f => f.Candidates.Contains(xyCandidate)))
-            {
-                if(pivot.IntersectsWith(pincerPossibility))
-                {
-                    pincerPossibilities.Add(pincerPossibility);
-                }
-            }
-            return pincerPossibilities;
-        }
-
-
-        // Per block try to find situations where a value can only exist in one row or column (e.g. two fields in block 2 on the same row where only a 7 can go).
-        // In those cases eliminate 7 as a candidate of fields on that row in the other horizontal blocks (= block 1 and 3) and see what happens.
-        private int TryAdvancedSlashing()
-        {
-            int nrOfCandidatesRemoved = 0;
-
-            for (int block = 1; block <= 9; block++)
-            {
-                for (int value = 1; value <= 9; value++)
-                {
-                    var fieldsInBlockWithValueInCandidates = _fields.Blocks(block).Where(f => f.Candidates.Contains(value)).ToList();
-
-                    if (fieldsInBlockWithValueInCandidates.Count <= 3)
-                    {
-                        // In same row?
-                        if (fieldsInBlockWithValueInCandidates.GroupBy(f => f.Row).Count() == 1)
-                            nrOfCandidatesRemoved += RemoveCandidatesOutsideBlock(block, value, fieldsInBlockWithValueInCandidates, true);
-
-                        // In same column?
-                        if (fieldsInBlockWithValueInCandidates.GroupBy(f => f.Column).Count() == 1)
-                            nrOfCandidatesRemoved += RemoveCandidatesOutsideBlock(block, value, fieldsInBlockWithValueInCandidates, false);
-                    }
-                }
-            }
-            return nrOfCandidatesRemoved;
-        }
-
-        private int RemoveCandidatesOutsideBlock(int block, int value, List<Field> fieldsInBlockWithValueInCandidates, bool isRow)
-        {
-            IEnumerable<Field> fieldsOutsideBlock = _fields.Where(f => f.Block != block);
-
-            fieldsOutsideBlock = isRow ?
-                fieldsOutsideBlock.Rows(fieldsInBlockWithValueInCandidates[0].Row) :
-                fieldsOutsideBlock.Columns(fieldsInBlockWithValueInCandidates[0].Column);
-
-            return fieldsOutsideBlock.RemoveValueFromCandidates(value);
-        }
-
-        private static int CheckFieldsWithSimilarCandidates(IEnumerable<Field> fields, int candidateCount)
-        {
-            int nrOfCandidatesRemoved = 0;
-
-            // Generate candidate combinations based on the input candidateCount
-            var candidateCombinations = GetCombinations(Enumerable.Range(1, 9).ToList(), candidateCount);
-
-            foreach (var combination in candidateCombinations)
-            {
-                var matchingFields = fields.Where(f => combination.All(c => f.Candidates.Contains(c))).ToList();
-
-                // If exactly candidateCount fields match the combination, check further
-                if (matchingFields.Count == candidateCount)
-                {
-                    // Ensure that each candidate appears exactly candidateCount times
-                    bool validCombination = true;
-                    foreach (var candidate in combination)
-                    {
-                        if (fields.Count(f => f.Candidates.Contains(candidate)) != candidateCount)
-                        {
-                            validCombination = false;
-                            break;
-                        }
-                    }
-
-                    if (validCombination)
-                    {
-                        // Remove other candidates from the matching fields
-                        foreach (var field in matchingFields)
-                        {
-                            var candidates = field.Candidates.ToList();
-                            foreach (int candidate in candidates)
-                            {
-                                if (!combination.Contains(candidate))
-                                {
-                                    field.RemoveValueFromCandidates(candidate);
-                                    nrOfCandidatesRemoved += 1;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return nrOfCandidatesRemoved;
-        }
-
-        private static int RemoveCandidates(List<int> candidates, IEnumerable<Field> fields)
-        {
-            int nrOfCandidatesRemoved = 0;
-
-            foreach (int candidate in candidates)
-                nrOfCandidatesRemoved += fields.RemoveValueFromCandidates(candidate);
-
-            return nrOfCandidatesRemoved;
+            return fieldsWithTwoCandidates
+                .Where(f => f != pivot && f.Candidates.Contains(candidate) && pivot.IntersectsWith(f));
         }
 
         // Helper method to generate combinations of a specific length
-        private static IEnumerable<List<int>> GetCombinations(List<int> list, int length)
+        public static List<List<int>> GetCombinations(List<int> list, int length)
         {
-            if (length == 0)
-                return new List<List<int>> { new List<int>() };
-
-            return list.SelectMany((item, index) =>
-                GetCombinations(list.Skip(index + 1).ToList(), length - 1),
-                (item, items) => new List<int> { item }.Concat(items).ToList());
+            return (length == 0)
+                ? new List<List<int>> { new List<int>() }
+                : list.SelectMany((e, i) =>
+                    GetCombinations(list.Skip(i + 1).ToList(), length - 1)
+                        .Select(c => new List<int> {e}.Concat(c).ToList())
+                  ).ToList();
         }
 
         // Initialize the puzzle
         private void Initialize(string[] data)
         {
+            // Check if the input has exactly 9 rows and 9 columns
+            if (data.Length != 9 || data.Any(row => row.Length != 9))
+                throw new ArgumentException("Invalid puzzle. Expected 9x9 matrix.");
+
+            // Ensure all characters are digits 1-9 or spaces (indicating empty cells)
+            if (data.Any(row => row.Any(ch => !(char.IsDigit(ch) && ch != '0') && ch != ' ')))
+                throw new ArgumentException("Invalid puzzle. Allowed characters: 1-9 and ' ' (space)");
+
             for (int row = 0; row < 9; row++)
             {
                 for (int col = 0; col < 9; col++)
@@ -798,10 +542,63 @@ namespace SudokuSolver
                     {
                         var value = int.Parse(data[row][col].ToString());
                         _fields2D[row, col].Value = value;
-                        _fields2D[row, col].Candidates = [value];
+                        _fields2D[row, col].Candidates = [];
                     }
                 }
             }
+        }
+
+        private void ValidateInput()
+        {
+            // Check if the puzzle has at least 17 clues
+            if (_fields.Count(f => f.Value.HasValue) < 17)
+                throw new ArgumentException("Invalid puzzle. Minimum number of clues: 17");            
+
+            // Validate rows, columns, and blocks
+            ValidateSegments();
+        }
+
+        private void ValidateSegments()
+        {
+            for (int i = 1; i <= 9; i++)
+            {
+                if (!HasUniqueNumbers(_fields.Rows(i)))
+                    throw new ArgumentException($"Invalid puzzle. Row {i}: duplicate values found.");
+                if (!HasUniqueNumbers(_fields.Columns(i)))
+                    throw new ArgumentException($"Invalid puzzle. Column {i}: duplicate values found.");
+                if (!HasUniqueNumbers(_fields.Blocks(i)))
+                    throw new ArgumentException($"Invalid puzzle. Block {i}: duplicate values found.");
+            }
+        }
+
+        private bool HasUniqueNumbers(IEnumerable<Field> fields)
+        {
+            var numbers = fields.Where(f => f.Value.HasValue)
+                                 .Select(f => f.Value.Value)
+                                 .ToList();
+
+            return numbers.Distinct().Count() == numbers.Count;
+        }
+
+
+        private bool SudokuIsSolved()
+        {
+            return _fields.TrueForAll(f => f.Value.HasValue);
+        }
+
+        private int[,] ConvertFieldsToArray()
+        {
+            int[,] sudokuArray = new int[9, 9];
+
+            foreach (var field in _fields)
+            {
+                int rowIndex = field.Row - 1;
+                int colIndex = field.Column - 1;
+
+                sudokuArray[rowIndex, colIndex] = field.Value ?? 0;
+            }
+
+            return sudokuArray;
         }
 
         private void CheckValiditySolution()
@@ -830,7 +627,7 @@ namespace SudokuSolver
             {
                 WriteLine(this, ConsoleColor.Magenta);
                 throw new InvalidOperationException($"Invalid solution! {segment} {i}, missing value: {result.First()}");
-            };
+            }
         }
 
         public override string ToString()
@@ -839,7 +636,7 @@ namespace SudokuSolver
 
             for (int row = 0; row < 9; row++)
             {
-                if(row % 3 == 0)
+                if (row % 3 == 0)
                     output += row == 0 ? "╔═══╦═══╦═══╗\r\n" : "╠═══╬═══╬═══╣\r\n";
 
                 for (int col = 0; col < 9; col++)
@@ -883,14 +680,6 @@ namespace SudokuSolver
             }
 
             WriteLine("################## DEBUG END ####################", ConsoleColor.Cyan);
-        }
-
-        private class BlockData
-        {
-            public int Value { get; set; }
-            public required List<Field> Block { get; set; }
-            public required IEnumerable<IGrouping<int, Field>> RowsContainingValue { get; set; }
-            public required IEnumerable<IGrouping<int, Field>> ColumnsContainingValue { get; set; }
         }
     }
 }
