@@ -1,18 +1,18 @@
-﻿using SudokuSolver.Extensions;
-using SudokuSolver.Models;
+﻿using SudokuSolverClient.Extensions;
+using SudokuSolverClient.Models;
 
-namespace SudokuSolver
+namespace SudokuSolverClient
 {
-    public class Sudoku
+    public class SudokuSolver
     {
         private readonly Field[,] _fields2D;
         private readonly List<Field> _fields = [];        
 
-        public Sudoku() : this(false)
+        public SudokuSolver() : this(false)
         {
         }
 
-        public Sudoku(bool debug)
+        public SudokuSolver(bool debug)
         {
             Settings.Debug = debug;
 

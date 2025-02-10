@@ -1,5 +1,5 @@
 using FluentAssertions;
-using SudokuSolver;
+using SudokuSolverClient;
 
 namespace SudokuSolverTests
 {
@@ -23,7 +23,7 @@ namespace SudokuSolverTests
                 "         ",
             ];
 
-            var sudoku = new Sudoku();
+            var sudoku = new SudokuSolver();
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data))
@@ -38,7 +38,7 @@ namespace SudokuSolverTests
         public void ShouldThrowExceptionInvalidPuzzleInvalidChars(string[] data)
         {
             // Prepare
-            var sudoku = new Sudoku();
+            var sudoku = new SudokuSolver();
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data))
@@ -54,7 +54,7 @@ namespace SudokuSolverTests
         public void ShouldThrowExceptionInvalidPuzzleDimensions(string[] data)
         {
             // Prepare
-            var sudoku = new Sudoku();
+            var sudoku = new SudokuSolver();
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data))
@@ -69,7 +69,7 @@ namespace SudokuSolverTests
         public void ShouldThrowExceptionInvalidPuzzleDuplicateValues(string[] data)
         {
             // Prepare
-            var sudoku = new Sudoku();
+            var sudoku = new SudokuSolver();
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data))
@@ -99,7 +99,7 @@ namespace SudokuSolverTests
                 "9 72  8  ",
             ];
 
-            int[,] result = new Sudoku().Solve(data);
+            int[,] result = new SudokuSolver().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -125,7 +125,7 @@ namespace SudokuSolverTests
                 "38       ",
             ];
 
-            int[,] result = new Sudoku().Solve(data);
+            int[,] result = new SudokuSolver().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -148,7 +148,7 @@ namespace SudokuSolverTests
                 "         ",
             ];
 
-            int[,] result = new Sudoku().Solve(data);
+            int[,] result = new SudokuSolver().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -171,7 +171,7 @@ namespace SudokuSolverTests
                 "68 57   2",
             ];
 
-            int[,] result = new Sudoku().Solve(data);
+            int[,] result = new SudokuSolver().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }        
@@ -194,7 +194,7 @@ namespace SudokuSolverTests
                 "         ",
             ];
 
-            int[,] result = new Sudoku().Solve(data);
+            int[,] result = new SudokuSolver().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -219,7 +219,7 @@ namespace SudokuSolverTests
                 "4  3   1 ",
             ];
 
-            int[,] result = new Sudoku().Solve(data);
+            int[,] result = new SudokuSolver().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -243,7 +243,7 @@ namespace SudokuSolverTests
                 " 7    8 9",
             ];
 
-            int[,] result = new Sudoku().Solve(data);
+            int[,] result = new SudokuSolver().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -267,7 +267,7 @@ namespace SudokuSolverTests
                 "2 7 86  9",
             ];
 
-            int[,] result = new Sudoku().Solve(data);
+            int[,] result = new SudokuSolver().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -280,7 +280,7 @@ namespace SudokuSolverTests
         [DataRow(["5  96   4", "  2    8 ", "        3", "      2 7", "     2   ", " 4 75   6", "   4 9   ", "4    13 2", "    28  5"])]
         public void ShouldSolveFiveStarPuzzles(string[] data)
         {
-            int[,] result = new Sudoku().Solve(data);
+            int[,] result = new SudokuSolver().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -308,7 +308,7 @@ namespace SudokuSolverTests
                 "13 75  98",
             ];
 
-            int[,] result = new Sudoku().Solve(data);
+            int[,] result = new SudokuSolver().Solve(data);
 
             IsSudokuSolved(result).Should().BeFalse();
         }

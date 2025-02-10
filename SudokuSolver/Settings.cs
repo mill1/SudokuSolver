@@ -1,4 +1,4 @@
-﻿namespace SudokuSolver
+﻿namespace SudokuSolverClient
 {
     public static class Settings
     {

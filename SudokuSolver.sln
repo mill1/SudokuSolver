@@ -3,9 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34714.143
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SudokuSolver", "SudokuSolver\SudokuSolver.csproj", "{E7E2E2C9-D3A8-43B2-8172-3408579F9D9E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SudokuSolverClient", "SudokuSolver\SudokuSolverClient.csproj", "{E7E2E2C9-D3A8-43B2-8172-3408579F9D9E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SudokuSolverTests", "SudokuSolverTests\SudokuSolverTests.csproj", "{B3C589C8-675E-4FDA-9B0A-8EAC4BCD935C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SudokuSolverTests", "SudokuSolverTests\SudokuSolverTests.csproj", "{B3C589C8-675E-4FDA-9B0A-8EAC4BCD935C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SudokuSolverApi", "SudokuSolverApi\SudokuSolverApi.csproj", "{8967916A-BDA2-4B09-B6CF-23A1107DC867}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{B3C589C8-675E-4FDA-9B0A-8EAC4BCD935C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B3C589C8-675E-4FDA-9B0A-8EAC4BCD935C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B3C589C8-675E-4FDA-9B0A-8EAC4BCD935C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8967916A-BDA2-4B09-B6CF-23A1107DC867}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8967916A-BDA2-4B09-B6CF-23A1107DC867}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8967916A-BDA2-4B09-B6CF-23A1107DC867}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8967916A-BDA2-4B09-B6CF-23A1107DC867}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

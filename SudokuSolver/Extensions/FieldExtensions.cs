@@ -1,6 +1,6 @@
-﻿using SudokuSolver.Models;
+﻿using SudokuSolverClient.Models;
 
-namespace SudokuSolver.Extensions
+namespace SudokuSolverClient.Extensions
 {
     internal static class FieldExtensions
     {
