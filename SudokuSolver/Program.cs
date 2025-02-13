@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.Design;
-using System.Net.Http;
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Text.Json;
 
 namespace SudokuSolverClient
@@ -72,7 +70,7 @@ namespace SudokuSolverClient
         {
             using HttpClient client = GetHttpClient();
 
-            var request = client.GetAsync("https://localhost:44310/Sudoku");
+            var request = client.GetAsync("Sudoku");
             List<string> rows = Request(request);
 
             return rows;
@@ -82,32 +80,11 @@ namespace SudokuSolverClient
         {
             using HttpClient client = GetHttpClient();
 
-            client.BaseAddress = new Uri("https://localhost:44310/Sudoku");
+            var request = client.GetAsync($"Sudoku/Solve?puzzle={content}");
+            List<string> rows = Request(request);
 
-            //var x = client.PostAsync()
-
-            var response = client.PostAsync("Solve", new StringContent(content, System.Text.Encoding.UTF8, "text/plain")).Result;
-
-            return null;
+            return rows;
         }
-
-        //private static List<string> SolveSoduku(string content)
-        //{
-        //    using HttpClient client = GetHttpClient();
-
-        //    client.BaseAddress = new Uri("https://localhost:44310/Sudoku");
-
-
-        //    var response = client.PostAsync("Solve", new StringContent("Saying hello!", System.Text.Encoding.UTF8, "text/plain")).Result;
-
-
-        //var request = client.PostAsync("puzzle", new StringContent(content, System.Text.Encoding.UTF8, "text/plain"));
-
-        //    List<string> rows = Request(request);
-
-        //    return rows;
-        //}
-
 
         private static void PrintSudoku(List<string> rows)
         {
@@ -117,28 +94,6 @@ namespace SudokuSolverClient
             var oneLiner = string.Join("", rows);
             WriteLine("Sudoku as oneliner:");
             WriteLine($"\"{oneLiner.Replace(" ", "0")}\"");            
-        }
-
-        private static void Main1(string[] args)
-        {
-            bool debug = false;
-            if(args.Length > 0) 
-                debug = true;
-            
-            string[] puzzle =
-            [
-                "     1 3 ",
-                "231 9    ",
-                " 65  31  ",
-                "6789243  ",
-                "1 3 5   6",
-                "   1367  ",
-                "  936 57 ",
-                "  6 19843",
-                "3        ",
-            ];
-
-            new SudokuSolver(debug).Solve(puzzle);
         }
 
         private static List<string> Request(Task<HttpResponseMessage> message)
@@ -184,6 +139,9 @@ namespace SudokuSolverClient
             client.DefaultRequestHeaders.Accept.Add(
                 new MediaTypeWithQualityHeaderValue("application/json"));
             client.DefaultRequestHeaders.Add("User-Agent", ".NET application");
+            // https://stackoverflow.com/questions/23438416/why-is-httpclient-baseaddress-not-working
+            client.BaseAddress = new Uri("https://localhost:44310/");
+
             return client;
         }
     }

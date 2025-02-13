@@ -33,11 +33,23 @@ namespace SudokuSolverApi.Controllers
         }
 
         //  https://localhost:44310/Sudoku?puzzle=000001030231090000065003100678924300103050006000136700009360570006019843300000000
-        [HttpPost]
-        public string[] Solve([FromBody] string puzzle)
+        [HttpGet("Solve")]
+        public string[] Solve([FromQuery] string puzzle)
         {
-            return ["a", "b", "c"];
+            List<string> output = SplitStringByLength(puzzle, 9);
 
+            return output.ToArray();
+
+        }
+
+        public static List<string> SplitStringByLength(string input, int chunkSize)
+        {
+            List<string> result = new List<string>();
+            for (int i = 0; i < input.Length; i += chunkSize)
+            {
+                result.Add(input.Substring(i, Math.Min(chunkSize, input.Length - i)));
+            }
+            return result;
         }
     }
 }
