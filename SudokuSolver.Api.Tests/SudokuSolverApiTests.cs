@@ -1,5 +1,5 @@
 ﻿using FluentAssertions;
-using SudokuSolverApi.Services;
+using SudokuSolver.Api.Services;
 
 namespace SudokuSolverTests
 {

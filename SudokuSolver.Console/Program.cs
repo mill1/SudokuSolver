@@ -1,7 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using System.Text.Json;
 
-namespace SudokuSolverClient
+namespace SudokuSolver.AppConsole
 {
     public static class Program
     {
@@ -26,7 +26,6 @@ namespace SudokuSolverClient
             }
             catch (Exception e)
             {
-
                 WriteLine(e, ConsoleColor.Red);
             }
         }

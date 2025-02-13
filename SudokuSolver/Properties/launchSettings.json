@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "SudokuSolverClient": {
-      "commandName": "Project",
-      "commandLineArgs": "000001030231090000065003100678924300103050006000136700009360570006019843300000000"
-    }
-  }
-}

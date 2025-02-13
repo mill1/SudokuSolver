@@ -1,23 +1,16 @@
-﻿using SudokuSolverClient.Extensions;
-using SudokuSolverClient.Models;
+﻿
+using SudokuSolver.Api.Extensions;
+using SudokuSolver.Api.Models;
 
-namespace SudokuSolverClient
+namespace SudokuSolver.Api.Services
 {
-    public class SudokuSolver
+    public class SudokuService
     {
         private readonly Field[,] _fields2D;
-        private readonly List<Field> _fields = [];        
+        private readonly List<Field> _fields = [];
 
-        public SudokuSolver() : this(false)
+        public SudokuService()
         {
-        }
-
-
-        // TODO uiteraard
-        public SudokuSolver(bool debug)
-        {
-            Settings.Debug = debug;
-
             // Initialize fields
             _fields2D = new Field[9, 9];
 
@@ -32,12 +25,33 @@ namespace SudokuSolverClient
             }
         }
 
+        public string[] GetSudoku()
+        {
+            string[][] sudokus =
+            [
+                ["     1 3 ", "231 9    ", " 65  31  ", "6789243  ", "1 3 5   6", "   1367  ", "  936 57 ", "  6 19843", "3        "],
+                ["4    9   ", "      3  ", "5  83 96 ", " 5   8 9 ", " 7  5    ", "6   432 7", "7       6", "8   64   ", "3 52  4 8"],
+                [" 2   47  ", "  82     ", "9  6     ", "     83 6", "5 63    4", " 9 5  17 ", "      9  ", "64   1   ", "       18"],
+                ["9 46     ", "       18", " 2  5 46 ", "5    1 4 ", "4    2   ", "    9    ", " 8    7  ", " 51  83  ", "   5    6"],
+                ["5  96   4", "  2    8 ", "        3", "      2 7", "     2   ", " 4 75   6", "   4 9   ", "4    13 2", "    28  5"]
+            ];
+
+            return sudokus[Random.Shared.Next(0, 5)];
+        }
+
+        public int[,] SolveSudoku(string puzzle)
+        {
+            List<string> data = puzzle.SplitStringByLength(9);
+
+            return Solve(data.ToArray());
+        }
+
         public int[,] Solve(string[] data)
         {
             try
             {
                 Initialize(data);
-                ValidateInput();                    
+                ValidateInput();
                 SolveSudoku();
                 PrintResult();
 
@@ -59,11 +73,12 @@ namespace SudokuSolverClient
             {
                 _iteration++;
 
-                if (Settings.Debug)
-                {
-                    WriteLine($"Iteration: {_iteration}");
-                    WriteLine(this, ConsoleColor.Cyan);
-                }
+                // TODO Setting.Debug
+                //if (Settings.Debug)
+                //{
+                //    WriteLine($"Iteration: {_iteration}");
+                //    WriteLine(this, ConsoleColor.Cyan);
+                //}
 
                 if (TryBasicCandidateElimination() > 0) continue;
                 if (TryNakedSingles() > 0) continue;
@@ -75,7 +90,7 @@ namespace SudokuSolverClient
                 if (TryYWing() > 0) continue;
 
                 break; // No more eliminations possible
-            }            
+            }
         }
 
         // 1. Per value try to remove candidates from other fields within the same segment (row, column or block).
@@ -112,7 +127,7 @@ namespace SudokuSolverClient
                 field.Candidates.Clear();
                 nrOfValuesSet++;
 
-                if (Settings.Debug)
+                // TODO if (Settings.Debug)
                     WriteLine($"Found solution (naked singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
 
                 // Remove this value from candidates in the same row, column, and block
@@ -156,7 +171,7 @@ namespace SudokuSolverClient
                         field.Candidates.Clear();
                         nrOfValuesSet++;
 
-                        if (Settings.Debug)
+                        // TODO if (Settings.Debug)
                             WriteLine($"Found solution (hidden singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
                     }
 
@@ -236,7 +251,7 @@ namespace SudokuSolverClient
         private int TryHiddenSubsets()
         {
             int nrOfCandidatesRemoved = 0;
-            
+
             for (int subsetSize = 2; subsetSize <= 4; subsetSize++)
             {
                 nrOfCandidatesRemoved += TryHiddenSubset(subsetSize);
@@ -389,7 +404,7 @@ namespace SudokuSolverClient
             else
             {
                 WriteLine("Not solved", ConsoleColor.DarkMagenta);
-                if (Settings.Debug)
+                // TODO if (Settings.Debug)
                     PrintDebugInformation(true);
             }
             WriteLine(this, ConsoleColor.Yellow);
@@ -522,7 +537,7 @@ namespace SudokuSolverClient
                 ? new List<List<int>> { new List<int>() }
                 : list.SelectMany((e, i) =>
                     GetCombinations(list.Skip(i + 1).ToList(), length - 1)
-                        .Select(c => new List<int> {e}.Concat(c).ToList())
+                        .Select(c => new List<int> { e }.Concat(c).ToList())
                   ).ToList();
         }
 
@@ -534,14 +549,14 @@ namespace SudokuSolverClient
                 throw new ArgumentException("Invalid puzzle. Expected 9x9 matrix.");
 
             // Ensure all characters are digits 1-9 or spaces (indicating empty cells)
-            if (data.Any(row => row.Any(ch => !(char.IsDigit(ch) && ch != '0') && ch != ' ')))
-                throw new ArgumentException("Invalid puzzle. Allowed characters: 1-9 and ' ' (space)");
+            if (data.Any(row => row.Any(ch => !char.IsDigit(ch))))
+                throw new ArgumentException("Invalid puzzle. Allowed characters: 0-9");
 
             for (int row = 0; row < 9; row++)
             {
                 for (int col = 0; col < 9; col++)
                 {
-                    if (data[row][col] != ' ')
+                    if (data[row][col] != '0')
                     {
                         var value = int.Parse(data[row][col].ToString());
                         _fields2D[row, col].Value = value;
@@ -555,7 +570,7 @@ namespace SudokuSolverClient
         {
             // Check if the puzzle has at least 17 clues
             if (_fields.Count(f => f.Value.HasValue) < 17)
-                throw new ArgumentException("Invalid puzzle. Minimum number of clues: 17");            
+                throw new ArgumentException("Invalid puzzle. Minimum number of clues: 17");
 
             // Validate rows, columns, and blocks
             ValidateSegments();

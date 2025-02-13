@@ -1,4 +1,5 @@
-using SudokuSolverApi.Services;
+using SudokuSolver.Api.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,9 +7,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<SudokuService>();
 builder.Services.AddLogging();
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddNewtonsoftJson();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 
 var app = builder.Build();
 

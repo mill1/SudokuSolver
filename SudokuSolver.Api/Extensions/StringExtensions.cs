@@ -1,4 +1,4 @@
-﻿namespace SudokuSolverApi.Extensions
+﻿namespace SudokuSolver.Api.Extensions
 {
     public static class StringExtensions
     {

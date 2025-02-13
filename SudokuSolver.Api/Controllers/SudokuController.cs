@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using SudokuSolverApi.Services;
+using SudokuSolver.Api.Services;
 
-namespace SudokuSolverApi.Controllers
+namespace SudokuSolver.Api.Controllers
 {
     [ApiController]
     [Route("[controller]")]
@@ -24,12 +24,10 @@ namespace SudokuSolverApi.Controllers
         }
 
         [HttpGet("Solve")]
-        public string[] Solve([FromQuery] string puzzle)
+        public int[,] Solve([FromQuery] string puzzle)
         {
             _logger.LogTrace("SOLVE");
-            var result =  _sudokuService.SolveSudoku(puzzle);
-
-            return ["a", "b", "c"];
+            return _sudokuService.SolveSudoku(puzzle);
         }        
     }
 }
