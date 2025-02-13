@@ -1,4 +1,4 @@
-namespace SudokuSolverApi
+namespace SudokuSolverApi.Models
 {
     public class WeatherForecast
     {

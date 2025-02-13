@@ -1,4 +1,5 @@
-﻿using SudokuSolverClient.Models;
+﻿using System.ComponentModel.Design;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
@@ -6,7 +7,119 @@ namespace SudokuSolverClient
 {
     public static class Program
     {
-        static void Main2(string[] args)
+        public static void Main(string[] args)
+        {
+            try
+            {
+                if (args.Length == 0)
+                    RunUi();
+                else
+                {
+                    if (args.Length == 1)
+                    {
+                        var result = SolveSoduku(args[0]);
+                        PrintSudoku(result);
+                    }
+                    else
+                    {
+                        throw new ArgumentException($"Expected args.Length: 1, encountered: {args.Length}");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+
+                WriteLine(e, ConsoleColor.Red);
+            }
+        }
+
+        private static void RunUi()
+        {
+            PrintHeader();
+
+            bool running = true;
+
+            do
+            {
+                PrintOptions();
+
+                var answer = Console.ReadLine()?.ToLower().Trim();
+
+                switch (answer)
+                {
+                    case "g":
+                        var sudoku = GetSoduku();
+                        PrintSudoku(sudoku);
+                        break;
+                    case "s":
+                        WriteLine("Enter sudoku to solve as oneliner:");
+                        WriteLine("E.g.: 000001030231090000065003100678924300103050006000136700009360570006019843300000000");
+                        var puzzle = Console.ReadLine();
+                        var result = SolveSoduku(puzzle);
+                        PrintSudoku(result);
+                        break;
+                    case "q":
+                        running = false;
+                        break;
+                    default:
+                        WriteLine("Invalid option.");
+                        break;
+                }
+            } while (running);
+        }
+
+        private static List<string> GetSoduku()
+        {
+            using HttpClient client = GetHttpClient();
+
+            var request = client.GetAsync("https://localhost:44310/Sudoku");
+            List<string> rows = Request(request);
+
+            return rows;
+        }
+
+        private static List<string> SolveSoduku(string content)
+        {
+            using HttpClient client = GetHttpClient();
+
+            client.BaseAddress = new Uri("https://localhost:44310/Sudoku");
+
+            //var x = client.PostAsync()
+
+            var response = client.PostAsync("Solve", new StringContent(content, System.Text.Encoding.UTF8, "text/plain")).Result;
+
+            return null;
+        }
+
+        //private static List<string> SolveSoduku(string content)
+        //{
+        //    using HttpClient client = GetHttpClient();
+
+        //    client.BaseAddress = new Uri("https://localhost:44310/Sudoku");
+
+
+        //    var response = client.PostAsync("Solve", new StringContent("Saying hello!", System.Text.Encoding.UTF8, "text/plain")).Result;
+
+
+        //var request = client.PostAsync("puzzle", new StringContent(content, System.Text.Encoding.UTF8, "text/plain"));
+
+        //    List<string> rows = Request(request);
+
+        //    return rows;
+        //}
+
+
+        private static void PrintSudoku(List<string> rows)
+        {
+            foreach (var row in rows)
+                WriteLine($"\"{row}\"");
+
+            var oneLiner = string.Join("", rows);
+            WriteLine("Sudoku as oneliner:");
+            WriteLine($"\"{oneLiner.Replace(" ", "0")}\"");            
+        }
+
+        private static void Main1(string[] args)
         {
             bool debug = false;
             if(args.Length > 0) 
@@ -28,35 +141,50 @@ namespace SudokuSolverClient
             new SudokuSolver(debug).Solve(puzzle);
         }
 
-        static async Task Main()
+        private static List<string> Request(Task<HttpResponseMessage> message)
         {
-            using HttpClient client = new();
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(
-                new MediaTypeWithQualityHeaderValue("application/vnd.github.v3+json"));
-            client.DefaultRequestHeaders.Add("User-Agent", ".NET Foundation Repository Reporter");
+            var tmp = message.Result;
 
-            var repositories = await ProcessRepositoriesAsync(client);
+            var content = message.Result.Content;
+            var sudoku = content.ReadAsStringAsync().Result;
 
-            foreach (var repo in repositories)
-            {
-                Console.WriteLine($"Name: {repo.Name}");
-                Console.WriteLine($"Homepage: {repo.Homepage}");
-                Console.WriteLine($"GitHub: {repo.GitHubHomeUrl}");
-                Console.WriteLine($"Description: {repo.Description}");
-                Console.WriteLine($"Watchers: {repo.Watchers:#,0}");
-                Console.WriteLine($"{repo.LastPush}");
-                Console.WriteLine();
-            }
+            List<string> rows = JsonSerializer.Deserialize<List<string>>(sudoku);
+
+            return rows ?? [];
         }
 
-        static async Task<List<Repository>> ProcessRepositoriesAsync(HttpClient client)
+        private static void PrintOptions()
         {
-            await using Stream stream =
-                await client.GetStreamAsync("https://api.github.com/orgs/dotnet/repos");
-            var repositories =
-                await JsonSerializer.DeserializeAsync<List<Repository>>(stream);
-            return repositories ?? new();
+            WriteLine("Make a choice:", ConsoleColor.Blue);
+            WriteLine("g: Get sudoku", ConsoleColor.Blue);
+            WriteLine("s: Solve sudoku", ConsoleColor.Blue);
+            WriteLine("q: Quit", ConsoleColor.Blue);
+        }
+
+        private static void PrintHeader()
+        {
+            WriteLine(new string('-', 25), ConsoleColor.Blue);
+            WriteLine("Soduku solver", ConsoleColor.Blue);
+            WriteLine(new string('-', 25), ConsoleColor.Blue);
+        }
+
+        private static void WriteLine(object obj, ConsoleColor foregroundColor = ConsoleColor.White, ConsoleColor backgroundColor = ConsoleColor.Black)
+        {
+            Console.ForegroundColor = foregroundColor;
+            Console.BackgroundColor = backgroundColor;
+            Console.WriteLine(obj);
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.BackgroundColor = ConsoleColor.Black;
+        }
+
+        private static HttpClient GetHttpClient()
+        {
+            HttpClient client = new();
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/json"));
+            client.DefaultRequestHeaders.Add("User-Agent", ".NET application");
+            return client;
         }
     }
 }
