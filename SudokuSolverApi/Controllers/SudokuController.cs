@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Linq;
-using SudokuSolverApi.Models;
+using SudokuSolverApi.Services;
 
 namespace SudokuSolverApi.Controllers
 {
@@ -9,47 +8,28 @@ namespace SudokuSolverApi.Controllers
     public class SudokuController : ControllerBase
     {
         private readonly ILogger<SudokuController> _logger;
+        private readonly SudokuService _sudokuService;
 
-        public SudokuController(ILogger<SudokuController> logger)
+        public SudokuController(ILogger<SudokuController> logger, SudokuService sudokuService)
         {
             _logger = logger;
+            _sudokuService = sudokuService;
         }
-
-        // https://localhost:44310/Sudoku
 
         [HttpGet]
         public string[] Get()
         {
-            string[][] sudokus = 
-            {
-                 [ "     1 3 ", "231 9    ", " 65  31  ", "6789243  ", "1 3 5   6", "   1367  ", "  936 57 ", "  6 19843", "3        " ],
-                 [ "4    9   ", "      3  ", "5  83 96 ", " 5   8 9 ", " 7  5    ", "6   432 7", "7       6", "8   64   ", "3 52  4 8" ],
-                 [ " 2   47  ", "  82     ", "9  6     ", "     83 6", "5 63    4", " 9 5  17 ", "      9  ", "64   1   ", "       18" ],
-                 [ "9 46     ", "       18", " 2  5 46 ", "5    1 4 ", "4    2   ", "    9    ", " 8    7  ", " 51  83  ", "   5    6" ],
-                 [ "5  96   4", "  2    8 ", "        3", "      2 7", "     2   ", " 4 75   6", "   4 9   ", "4    13 2", "    28  5" ]
-            };
- 
-            return sudokus[Random.Shared.Next(0, 5)];
+            _logger.LogTrace("GET");
+            return _sudokuService.GetSudoku();            
         }
 
-        //  https://localhost:44310/Sudoku?puzzle=000001030231090000065003100678924300103050006000136700009360570006019843300000000
         [HttpGet("Solve")]
         public string[] Solve([FromQuery] string puzzle)
         {
-            List<string> output = SplitStringByLength(puzzle, 9);
+            _logger.LogTrace("SOLVE");
+            var result =  _sudokuService.SolveSudoku(puzzle);
 
-            return output.ToArray();
-
-        }
-
-        public static List<string> SplitStringByLength(string input, int chunkSize)
-        {
-            List<string> result = new List<string>();
-            for (int i = 0; i < input.Length; i += chunkSize)
-            {
-                result.Add(input.Substring(i, Math.Min(chunkSize, input.Length - i)));
-            }
-            return result;
-        }
+            return ["a", "b", "c"];
+        }        
     }
 }

@@ -1,10 +1,10 @@
-using FluentAssertions;
-using SudokuSolverClient;
+﻿using FluentAssertions;
+using SudokuSolverApi.Services;
 
 namespace SudokuSolverTests
 {
     [TestClass]
-    public class SudokuTests
+    public class SudokuSolverApiTests
     {
         [TestMethod]
         public void ShouldThrowExceptionInvalidPuzzleMinimumClues()
@@ -23,7 +23,7 @@ namespace SudokuSolverTests
                 "         ",
             ];
 
-            var sudoku = new SudokuSolver();
+            var sudoku = new SudokuService();
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data))
@@ -38,7 +38,7 @@ namespace SudokuSolverTests
         public void ShouldThrowExceptionInvalidPuzzleInvalidChars(string[] data)
         {
             // Prepare
-            var sudoku = new SudokuSolver();
+            var sudoku = new SudokuService();
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data))
@@ -49,12 +49,12 @@ namespace SudokuSolverTests
         [TestMethod]
         [DataRow(["12", "34"])]
         [DataRow(["     1 3 ", "231 9    ", " 65  31  ", "6789243  ", "1 3 5   6", "   1367  ", "  936 57 ", "  6 19843"])]
-        [DataRow(["  1 3 ", "29    ", " 631  ", "6243  ", "15   6", " 367  ", "  936 ", " 19843", "3     "])]        
+        [DataRow(["  1 3 ", "29    ", " 631  ", "6243  ", "15   6", " 367  ", "  936 ", " 19843", "3     "])]
         [DataRow(["     1 3 ", "231 9    ", " 65  31  ", "6789243  ", "1 3 5   6", "   1367  ", "  936 57 ", "  6 19843", "3        ", "123456789"])]
         public void ShouldThrowExceptionInvalidPuzzleDimensions(string[] data)
         {
             // Prepare
-            var sudoku = new SudokuSolver();
+            var sudoku = new SudokuService();
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data))
@@ -69,7 +69,7 @@ namespace SudokuSolverTests
         public void ShouldThrowExceptionInvalidPuzzleDuplicateValues(string[] data)
         {
             // Prepare
-            var sudoku = new SudokuSolver();
+            var sudoku = new SudokuService();
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data))
@@ -77,7 +77,7 @@ namespace SudokuSolverTests
                 .Where(e => e.Message.Contains("duplicate values found."));
         }
 
-        [TestMethod ("Test first three simple strategies")]
+        [TestMethod("Test first three simple strategies")]
         // Test folowing simple strategies:
         // 1. Basic Candidate Elimination
         // 2. Naked Singles
@@ -99,12 +99,12 @@ namespace SudokuSolverTests
                 "9 72  8  ",
             ];
 
-            int[,] result = new SudokuSolver().Solve(data);
+            int[,] result = new SudokuService().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
-        
-        [TestMethod ("Test Naked Pairs/Triples/Quads")]
+
+        [TestMethod("Test Naked Pairs/Triples/Quads")]
         // 4. Naked subset strategies
         // Naked Pair (n = 2)
         // Naked Triple (n = 3) 
@@ -125,7 +125,7 @@ namespace SudokuSolverTests
                 "38       ",
             ];
 
-            int[,] result = new SudokuSolver().Solve(data);
+            int[,] result = new SudokuService().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -148,7 +148,7 @@ namespace SudokuSolverTests
                 "         ",
             ];
 
-            int[,] result = new SudokuSolver().Solve(data);
+            int[,] result = new SudokuService().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -171,10 +171,10 @@ namespace SudokuSolverTests
                 "68 57   2",
             ];
 
-            int[,] result = new SudokuSolver().Solve(data);
+            int[,] result = new SudokuService().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
-        }        
+        }
 
         [TestMethod("Test PointingPairs and PointingTriples")]
         // Test 6. Locked Candidates; Pointing Pairs/Triples
@@ -194,12 +194,12 @@ namespace SudokuSolverTests
                 "         ",
             ];
 
-            int[,] result = new SudokuSolver().Solve(data);
+            int[,] result = new SudokuService().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
 
-        [TestMethod ("Test X-Wing (columns)")]
+        [TestMethod("Test X-Wing (columns)")]
         // 7a. X-Wing strategy (columns)
         // Also tests Locked candidates; Claiming Pairs/Triples
         public void ShouldSolveXWingColumns()
@@ -219,7 +219,7 @@ namespace SudokuSolverTests
                 "4  3   1 ",
             ];
 
-            int[,] result = new SudokuSolver().Solve(data);
+            int[,] result = new SudokuService().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -243,7 +243,7 @@ namespace SudokuSolverTests
                 " 7    8 9",
             ];
 
-            int[,] result = new SudokuSolver().Solve(data);
+            int[,] result = new SudokuService().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -267,7 +267,7 @@ namespace SudokuSolverTests
                 "2 7 86  9",
             ];
 
-            int[,] result = new SudokuSolver().Solve(data);
+            int[,] result = new SudokuService().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
@@ -280,12 +280,12 @@ namespace SudokuSolverTests
         [DataRow(["5  96   4", "  2    8 ", "        3", "      2 7", "     2   ", " 4 75   6", "   4 9   ", "4    13 2", "    28  5"])]
         public void ShouldSolveFiveStarPuzzles(string[] data)
         {
-            int[,] result = new SudokuSolver().Solve(data);
+            int[,] result = new SudokuService().Solve(data);
 
             IsSudokuSolved(result).Should().BeTrue();
         }
 
-        [TestMethod ("Test unsolved")]
+        [TestMethod("Test unsolved")]
         // Solution needs following unimplemented strategies:
         // Hidden Quads
         // X-Wing
@@ -308,7 +308,7 @@ namespace SudokuSolverTests
                 "13 75  98",
             ];
 
-            int[,] result = new SudokuSolver().Solve(data);
+            int[,] result = new SudokuService().Solve(data);
 
             IsSudokuSolved(result).Should().BeFalse();
         }

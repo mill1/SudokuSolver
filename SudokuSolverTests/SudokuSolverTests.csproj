@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SudokuSolverApi\SudokuSolverApi.csproj" />
     <ProjectReference Include="..\SudokuSolver\SudokuSolverClient.csproj" />
   </ItemGroup>
 

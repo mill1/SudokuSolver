@@ -98,8 +98,6 @@ namespace SudokuSolverClient
 
         private static List<string> Request(Task<HttpResponseMessage> message)
         {
-            var tmp = message.Result;
-
             var content = message.Result.Content;
             var sudoku = content.ReadAsStringAsync().Result;
 
