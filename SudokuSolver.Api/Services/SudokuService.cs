@@ -1,4 +1,5 @@
 ﻿
+using SudokuSolver.Api.Exceptions;
 using SudokuSolver.Api.Extensions;
 using SudokuSolver.Api.Models;
 
@@ -39,18 +40,11 @@ namespace SudokuSolver.Api.Services
             return sudokus[Random.Shared.Next(0, 5)];
         }
 
-        public int[,] SolveSudoku(string puzzle)
-        {
-            List<string> data = puzzle.SplitStringByLength(9);
-
-            return Solve(data.ToArray());
-        }
-
-        public int[,] Solve(string[] data)
+        public int[,] Solve(string puzzle)
         {
             try
             {
-                Initialize(data);
+                Initialize(puzzle);
                 ValidateInput();
                 SolveSudoku();
                 PrintResult();
@@ -356,21 +350,21 @@ namespace SudokuSolver.Api.Services
         {
             if (!candidateFields.Any()) return null;
             int row = candidateFields[0].Row;
-            return candidateFields.TrueForAll(f => f.Row == row) ? row : (int?)null;
+            return candidateFields.TrueForAll(f => f.Row == row) ? row : null;
         }
 
         private int? GetLockedColumn(List<Field> candidateFields)
         {
             if (!candidateFields.Any()) return null;
             int column = candidateFields[0].Column;
-            return candidateFields.TrueForAll(f => f.Column == column) ? column : (int?)null;
+            return candidateFields.TrueForAll(f => f.Column == column) ? column : null;
         }
 
         private int? GetLockedBlock(List<Field> candidateFields)
         {
             if (!candidateFields.Any()) return null;
             int block = candidateFields[0].Block;
-            return candidateFields.TrueForAll(f => f.Block == block) ? block : (int?)null;
+            return candidateFields.TrueForAll(f => f.Block == block) ? block : null;
         }
 
         // Eliminate candidate from row outside the block (Pointing)
@@ -542,15 +536,17 @@ namespace SudokuSolver.Api.Services
         }
 
         // Initialize the puzzle
-        private void Initialize(string[] data)
+        private void Initialize(string puzzle)
         {
+            var data = puzzle.SplitStringByLength(9).ToArray();
+
             // Check if the input has exactly 9 rows and 9 columns
             if (data.Length != 9 || data.Any(row => row.Length != 9))
-                throw new ArgumentException("Invalid puzzle. Expected 9x9 matrix.");
+                throw new InvalidPuzzleException("Expected 9x9 matrix.");
 
             // Ensure all characters are digits 1-9 or spaces (indicating empty cells)
             if (data.Any(row => row.Any(ch => !char.IsDigit(ch))))
-                throw new ArgumentException("Invalid puzzle. Allowed characters: 0-9");
+                throw new InvalidPuzzleException("Allowed characters: 0-9");
 
             for (int row = 0; row < 9; row++)
             {
@@ -570,7 +566,7 @@ namespace SudokuSolver.Api.Services
         {
             // Check if the puzzle has at least 17 clues
             if (_fields.Count(f => f.Value.HasValue) < 17)
-                throw new ArgumentException("Invalid puzzle. Minimum number of clues: 17");
+                throw new InvalidPuzzleException("Minimum number of clues: 17");
 
             // Validate rows, columns, and blocks
             ValidateSegments();
@@ -581,11 +577,11 @@ namespace SudokuSolver.Api.Services
             for (int i = 1; i <= 9; i++)
             {
                 if (!HasUniqueNumbers(_fields.Rows(i)))
-                    throw new ArgumentException($"Invalid puzzle. Row {i}: duplicate values found.");
+                    throw new InvalidPuzzleException($"Row {i}: duplicate values found.");
                 if (!HasUniqueNumbers(_fields.Columns(i)))
-                    throw new ArgumentException($"Invalid puzzle. Column {i}: duplicate values found.");
+                    throw new InvalidPuzzleException($"Column {i}: duplicate values found.");
                 if (!HasUniqueNumbers(_fields.Blocks(i)))
-                    throw new ArgumentException($"Invalid puzzle. Block {i}: duplicate values found.");
+                    throw new InvalidPuzzleException($"Block {i}: duplicate values found.");
             }
         }
 

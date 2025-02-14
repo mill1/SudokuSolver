@@ -1,5 +1,5 @@
-﻿using System.Net.Http.Headers;
-using System.Text.Json;
+﻿using Newtonsoft.Json;
+using System.Net.Http.Headers;
 
 namespace SudokuSolver.AppConsole
 {
@@ -15,8 +15,7 @@ namespace SudokuSolver.AppConsole
                 {
                     if (args.Length == 1)
                     {
-                        var result = SolveSoduku(args[0]);
-                        PrintSudoku(result);
+                        SolveSoduku(args[0]);
                     }
                     else
                     {
@@ -52,8 +51,7 @@ namespace SudokuSolver.AppConsole
                         WriteLine("Enter sudoku to solve as oneliner:");
                         WriteLine("E.g.: 000001030231090000065003100678924300103050006000136700009360570006019843300000000");
                         var puzzle = Console.ReadLine();
-                        var result = SolveSoduku(puzzle);
-                        PrintSudoku(result);
+                        SolveSoduku(puzzle);
                         break;
                     case "q":
                         running = false;
@@ -68,21 +66,59 @@ namespace SudokuSolver.AppConsole
         private static List<string> GetSoduku()
         {
             using HttpClient client = GetHttpClient();
+            
+            var content = client.GetAsync("Sudoku").Result.Content;
+            var result = content.ReadAsStringAsync().Result;
 
-            var request = client.GetAsync("Sudoku");
-            List<string> rows = Request(request);
+            List<string> rows = JsonConvert.DeserializeObject<List<string>>(result);
 
-            return rows;
+            return rows ?? [];
         }
 
-        private static List<string> SolveSoduku(string content)
+        private static void SolveSoduku(string puzzle)
         {
             using HttpClient client = GetHttpClient();
 
-            var request = client.GetAsync($"Sudoku/Solve?puzzle={content}");
-            List<string> rows = Request(request);
+            var result = client.GetAsync($"Sudoku/Solve?puzzle={puzzle}").Result;
 
-            return rows;
+            if (result.IsSuccessStatusCode)
+            {
+                WriteLine("!"); // stel vast opgelost of niet (code heb je al?)
+
+                var x = result.Content.ReadAsStringAsync().Result;
+
+                var sudoku = JsonConvert.DeserializeObject<int[,]>(x);
+                WriteLine(PrintIt(sudoku), ConsoleColor.Green);
+            }
+            if (result.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            {
+                var message = result.Content.ReadAsStringAsync().Result;
+                WriteLine($"Bad request: {message}", ConsoleColor.Red);
+            }
+            WriteLine($"Status code: {(int)result.StatusCode} ({result.StatusCode})", ConsoleColor.Red);
+        }
+
+        public static string PrintIt(int[,] _fields2D)
+        {
+            var output = string.Empty;
+
+            for (int row = 0; row < 9; row++)
+            {
+                if (row % 3 == 0)
+                    output += row == 0 ? "╔═══╦═══╦═══╗\r\n" : "╠═══╬═══╬═══╣\r\n";
+
+                for (int col = 0; col < 9; col++)
+                {
+                    if (col % 3 == 0)
+                        output += "║";
+
+                    output += _fields2D[row, col] == null ? " " : _fields2D[row, col].ToString();
+                }
+                output += "║\r\n";
+            }
+            output += "╚═══╩═══╩═══╝";
+
+            return output;
         }
 
         private static void PrintSudoku(List<string> rows)
@@ -93,16 +129,6 @@ namespace SudokuSolver.AppConsole
             var oneLiner = string.Join("", rows);
             WriteLine("Sudoku as oneliner:");
             WriteLine($"\"{oneLiner.Replace(" ", "0")}\"");            
-        }
-
-        private static List<string> Request(Task<HttpResponseMessage> message)
-        {
-            var content = message.Result.Content;
-            var sudoku = content.ReadAsStringAsync().Result;
-
-            List<string> rows = JsonSerializer.Deserialize<List<string>>(sudoku);
-
-            return rows ?? [];
         }
 
         private static void PrintOptions()
@@ -133,10 +159,8 @@ namespace SudokuSolver.AppConsole
         {
             HttpClient client = new();
             client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(
-                new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("User-Agent", ".NET application");
-            // https://stackoverflow.com/questions/23438416/why-is-httpclient-baseaddress-not-working
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            client.DefaultRequestHeaders.Add("User-Agent", ".NET application");            
             client.BaseAddress = new Uri("https://localhost:44310/");
 
             return client;

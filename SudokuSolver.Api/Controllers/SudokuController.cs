@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SudokuSolver.Api.Exceptions;
 using SudokuSolver.Api.Services;
 
 namespace SudokuSolver.Api.Controllers
@@ -24,10 +25,25 @@ namespace SudokuSolver.Api.Controllers
         }
 
         [HttpGet("Solve")]
-        public int[,] Solve([FromQuery] string puzzle)
+        public IActionResult Solve([FromQuery] string puzzle)
         {
-            _logger.LogTrace("SOLVE");
-            return _sudokuService.SolveSudoku(puzzle);
+            try
+            {
+                _logger.LogTrace("SOLVE");
+                var result = _sudokuService.Solve(puzzle);
+                return Ok(result);
+            }
+            catch (InvalidPuzzleException e)
+            {
+                var message = $"Invalid puzzle: {e.Message}";
+                _logger.LogInformation(message);
+                return BadRequest(message);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($"Unhandled exception: {e}");
+                return StatusCode(StatusCodes.Status500InternalServerError);
+            }
         }        
     }
 }
