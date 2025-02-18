@@ -59,7 +59,7 @@ namespace SudokuSolverTests
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data.Replace(' ', '0')))
                 .Should().Throw<InvalidPuzzleException>()
-                .Where(e => e.Message.Equals("Expected 9x9 matrix."));
+                .Where(e => e.Message.Equals("Expected 9x9 grid."));
         }
 
         [TestMethod]

@@ -531,7 +531,7 @@ namespace SudokuSolver.Api.Services
 
             // Check if the input has exactly 9 rows and 9 columns
             if (data.Length != 9 || data.Any(row => row.Length != 9))
-                throw new InvalidPuzzleException("Expected 9x9 matrix.");
+                throw new InvalidPuzzleException("Expected 9x9 grid.");
 
             // Ensure all characters are digits 1-9 or spaces (indicating empty cells)
             if (data.Any(row => row.Any(ch => !char.IsDigit(ch))))
@@ -591,17 +591,17 @@ namespace SudokuSolver.Api.Services
 
         private int[,] ConvertFieldsToGrid()
         {
-            int[,] sudokuArray = new int[9, 9];
+            int[,] grid = new int[9, 9];
 
             foreach (var field in _fields)
             {
                 int rowIndex = field.Row - 1;
                 int colIndex = field.Column - 1;
 
-                sudokuArray[rowIndex, colIndex] = field.Value ?? 0;
+                grid[rowIndex, colIndex] = field.Value ?? 0;
             }
 
-            return sudokuArray;
+            return grid;
         }
 
         private int RemoveCandidateFromFields(IEnumerable<Field> fields, int candidate, string strategie)
