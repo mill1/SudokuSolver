@@ -48,7 +48,7 @@ namespace SudokuSolver.AppConsole
                         PrintSudoku(sudoku);
                         break;
                     case "s":
-                        WriteLine("Enter sudoku to solve as oneliner:");
+                        WriteLine("Enter sudoku to solve:");
                         WriteLine("E.g.: 000001030231090000065003100678924300103050006000136700009360570006019843300000000");
                         var puzzle = Console.ReadLine();
                         SolveSoduku(puzzle);
@@ -63,16 +63,14 @@ namespace SudokuSolver.AppConsole
             } while (running);
         }
 
-        private static List<string> GetSudoku()
+        private static string GetSudoku()
         {
             using HttpClient client = GetHttpClient();
             
             var content = client.GetAsync("Sudoku").Result.Content;
             var result = content.ReadAsStringAsync().Result;
 
-            List<string> rows = JsonConvert.DeserializeObject<List<string>>(result);
-
-            return rows ?? [];
+            return JsonConvert.DeserializeObject<string>(result);
         }
 
         private static void SolveSoduku(string puzzle)
@@ -82,31 +80,30 @@ namespace SudokuSolver.AppConsole
             var result = client.GetAsync($"Sudoku/Solve?puzzle={puzzle}").Result;
 
             if (result.IsSuccessStatusCode)
-            {
-                WriteLine("!"); // stel vast opgelost of niet (code heb je al?)
+            {                
+                var sudoku = JsonConvert.DeserializeObject<int[,]>(result.Content.ReadAsStringAsync().Result);
 
-                var x = result.Content.ReadAsStringAsync().Result;
+                var solved = SudokuIsSolved(sudoku);
 
-                var sudoku = JsonConvert.DeserializeObject<int[,]>(x);
-
-                WriteLine(PrintIt(sudoku), ConsoleColor.Green);
+                WriteLine(solved ? "Solved" : "Not solved", solved ? ConsoleColor.Green : ConsoleColor.Magenta);
+                WriteLine(Gridify(sudoku), solved ? ConsoleColor.Green : ConsoleColor.Magenta);
             }
             if (result.StatusCode == System.Net.HttpStatusCode.BadRequest)
             {
                 var message = result.Content.ReadAsStringAsync().Result;
                 WriteLine($"Bad request: {message}", ConsoleColor.Red);
             }
-            WriteLine($"Status code: {(int)result.StatusCode} ({result.StatusCode})", ConsoleColor.Red);
+            if(result.StatusCode != System.Net.HttpStatusCode.OK && result.StatusCode != System.Net.HttpStatusCode.BadRequest) 
+                WriteLine($"Status code: {(int)result.StatusCode} ({result.StatusCode})", ConsoleColor.Red);
         }
 
         private static bool SudokuIsSolved(int[,] sudoku)
         {
             var flattened = sudoku.Cast<int>().ToList();
-            return flattened.TrueForAll(f => f != 0); // TODO
+            return flattened.TrueForAll(f => f != 0); 
         }
 
-        // TODO rename
-        public static string PrintIt(int[,] _fields2D)
+        public static string Gridify(int[,] array)
         {
             var output = string.Empty;
 
@@ -120,7 +117,7 @@ namespace SudokuSolver.AppConsole
                     if (col % 3 == 0)
                         output += "║";
 
-                    output += _fields2D[row, col] == null ? " " : _fields2D[row, col].ToString();
+                    output += array[row, col] == null ? " " : array[row, col].ToString();
                 }
                 output += "║\r\n";
             }
@@ -129,14 +126,13 @@ namespace SudokuSolver.AppConsole
             return output;
         }
 
-        private static void PrintSudoku(List<string> rows)
+        private static void PrintSudoku(string puzzle)
         {
-            foreach (var row in rows)
-                WriteLine($"\"{row}\"");
+            var array = ConvertStringToSudokuArray(puzzle);
 
-            var oneLiner = string.Join("", rows);
-            WriteLine("Sudoku as oneliner:");
-            WriteLine($"\"{oneLiner.Replace(" ", "0")}\"");            
+            WriteLine(Gridify(array), ConsoleColor.Cyan);
+            WriteLine("As one line:", ConsoleColor.Cyan);
+            WriteLine(puzzle, ConsoleColor.Cyan);            
         }
 
         private static void PrintOptions()
@@ -161,6 +157,16 @@ namespace SudokuSolver.AppConsole
             Console.WriteLine(obj);
             Console.ForegroundColor = ConsoleColor.White;
             Console.BackgroundColor = ConsoleColor.Black;
+        }
+
+        public static int[,] ConvertStringToSudokuArray(string input)
+        {
+            int[,] grid = new int[9, 9];
+
+            for (int i = 0; i < 81; i++)
+                grid[i / 9, i % 9] = input[i] - '0'; // Convert char to int
+
+            return grid;
         }
 
         private static HttpClient GetHttpClient()

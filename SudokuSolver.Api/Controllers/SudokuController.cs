@@ -18,7 +18,7 @@ namespace SudokuSolver.Api.Controllers
         }
 
         [HttpGet]
-        public string[] Get()
+        public string Get()
         {
             _logger.LogTrace("GET");
             return _sudokuService.GetSudoku();            
