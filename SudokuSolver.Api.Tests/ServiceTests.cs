@@ -7,7 +7,7 @@ using SudokuSolver.Api.Services;
 namespace SudokuSolverTests
 {
     [TestClass]
-    public class SudokuSolverApiTests
+    public class ServiceTests
     {
         [TestMethod]
         public void ShouldThrowExceptionInvalidPuzzleMinimumClues()

@@ -1,11 +1,12 @@
 ﻿
 using SudokuSolver.Api.Exceptions;
 using SudokuSolver.Api.Extensions;
+using SudokuSolver.Api.Interfaces;
 using SudokuSolver.Api.Models;
 
 namespace SudokuSolver.Api.Services
 {
-    public class SudokuService
+    public class SudokuService : ISudokuService
     {
         private readonly Field[,] _fields2D;
         private readonly List<Field> _fields = [];
@@ -47,11 +48,17 @@ namespace SudokuSolver.Api.Services
         {
             try
             {
+                _logger.LogInformation("Solve START", puzzle);
+
                 Initialize(puzzle);
                 ValidateInput();
                 SolveSudoku();
 
-                return ConvertFieldsToArray();
+                var grid = ConvertFieldsToGrid();
+
+                _logger.LogInformation("Solve END", grid);
+
+                return grid;
             }
             catch (Exception e)
             {
@@ -121,7 +128,7 @@ namespace SudokuSolver.Api.Services
                 _logger.LogDebug($"Found solution (naked singles): {field}");
 
                 // Remove this value from candidates in the same row, column, and block
-                RemoveCandidateFromFields(field.OtherPeers(), value, "Strategy 1");
+                RemoveCandidateFromFields(field.OtherPeers(), value, "Strategy 2");
 
             }
 
@@ -582,7 +589,7 @@ namespace SudokuSolver.Api.Services
             return _fields.TrueForAll(f => f.Value.HasValue);
         }
 
-        private int[,] ConvertFieldsToArray()
+        private int[,] ConvertFieldsToGrid()
         {
             int[,] sudokuArray = new int[9, 9];
 

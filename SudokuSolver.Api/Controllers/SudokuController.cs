@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using SudokuSolver.Api.Exceptions;
+using SudokuSolver.Api.Interfaces;
 using SudokuSolver.Api.Services;
 
 namespace SudokuSolver.Api.Controllers
@@ -9,9 +10,9 @@ namespace SudokuSolver.Api.Controllers
     public class SudokuController : ControllerBase
     {
         private readonly ILogger<SudokuController> _logger;
-        private readonly SudokuService _sudokuService;
+        private readonly ISudokuService _sudokuService;
 
-        public SudokuController(ILogger<SudokuController> logger, SudokuService sudokuService)
+        public SudokuController(ILogger<SudokuController> logger, ISudokuService sudokuService)
         {
             _logger = logger;
             _sudokuService = sudokuService;
