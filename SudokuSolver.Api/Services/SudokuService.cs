@@ -1,5 +1,4 @@
 ﻿
-using SudokuSolver.Api.Controllers;
 using SudokuSolver.Api.Exceptions;
 using SudokuSolver.Api.Extensions;
 using SudokuSolver.Api.Models;
@@ -69,7 +68,6 @@ namespace SudokuSolver.Api.Services
             {
                 _iteration++;
 
-
                 _logger.LogDebug($"Iteration: {_iteration}");
                 _logger.LogDebug($"{this}");
 
@@ -101,8 +99,8 @@ namespace SudokuSolver.Api.Services
                     .Distinct()
                     .ToList();
 
-                foreach (var value in existingValues)
-                    totalCandidatesRemoved += field.RemoveCandidateFromField(value);
+                foreach (var value in existingValues)                
+                    totalCandidatesRemoved += RemoveCandidateFromField(field, value, "Strategy 1");                                    
             }
 
             return totalCandidatesRemoved;
@@ -123,7 +121,8 @@ namespace SudokuSolver.Api.Services
                 _logger.LogDebug($"Found solution (naked singles): {field}");
 
                 // Remove this value from candidates in the same row, column, and block
-                field.OtherPeers().RemoveCandidateFromFields(value);
+                RemoveCandidateFromFields(field.OtherPeers(), value, "Strategy 1");
+
             }
 
             return nrOfValuesSet;
@@ -167,7 +166,7 @@ namespace SudokuSolver.Api.Services
                     }
 
                     // Remove this value from candidates in the same row, column, and block
-                    field.OtherPeers().RemoveCandidateFromFields(value);
+                    RemoveCandidateFromFields(field.OtherPeers(), value, "Strategy 3");
                 }
             }
 
@@ -192,7 +191,7 @@ namespace SudokuSolver.Api.Services
             return nrOfCandidatesRemoved;
         }
 
-        private static int FindFieldsWithSimilarCandidates(IEnumerable<Field> fields, int candidateCount)
+        private int FindFieldsWithSimilarCandidates(IEnumerable<Field> fields, int candidateCount)
         {
             int nrOfCandidatesRemoved = 0;
 
@@ -227,7 +226,8 @@ namespace SudokuSolver.Api.Services
                             {
                                 if (!combination.Contains(candidate))
                                 {
-                                    field.RemoveCandidateFromField(candidate);
+                                    
+                                    RemoveCandidateFromField(field, candidate, "Strategy 4");
                                     nrOfCandidatesRemoved += 1;
                                 }
                             }
@@ -287,7 +287,7 @@ namespace SudokuSolver.Api.Services
                         var extraCandidates = field.Candidates.Except(subset).ToList();
                         foreach (var candidate in extraCandidates)
                         {
-                            nrOfCandidatesRemoved += field.RemoveCandidateFromField(candidate);
+                            nrOfCandidatesRemoved += RemoveCandidateFromField(field, candidate, "Strategy 5");
                         }
                     }
                 }
@@ -320,8 +320,6 @@ namespace SudokuSolver.Api.Services
                         nrOfCandidatesRemoved += EliminateFromColumnOutsideBlock(block, lockedColumn.Value, value);
                 }
             }
-
-            int x = nrOfCandidatesRemoved;
 
             // Apply Claiming for each row and column
             for (int i = 1; i <= 9; i++)
@@ -368,21 +366,21 @@ namespace SudokuSolver.Api.Services
         private int EliminateFromRowOutsideBlock(int block, int row, int value)
         {
             var fieldsOutsideBlock = _fields.Rows(row).Where(f => f.Block != block);
-            return fieldsOutsideBlock.RemoveCandidateFromFields(value);
+            return RemoveCandidateFromFields(fieldsOutsideBlock, value, "Strategy 6");
         }
 
         // Eliminate candidate from column outside the block (Pointing)
         private int EliminateFromColumnOutsideBlock(int block, int column, int value)
         {
             var fieldsOutsideBlock = _fields.Columns(column).Where(f => f.Block != block);
-            return fieldsOutsideBlock.RemoveCandidateFromFields(value);
+            return RemoveCandidateFromFields(fieldsOutsideBlock, value, "Strategy 6");
         }
 
         // Eliminate candidate from block outside the row/column (Claiming)
         private int EliminateFromBlockOutsideLine(IEnumerable<Field> blockFields, List<Field> lineFields, int value)
         {
             var fieldsOutsideLine = blockFields.Except(lineFields);
-            return fieldsOutsideLine.RemoveCandidateFromFields(value);
+            return RemoveCandidateFromFields(fieldsOutsideLine, value, "Strategy 6");
         }
 
         // 7. Google: Sudoku X-Wing strategy explained
@@ -435,7 +433,7 @@ namespace SudokuSolver.Api.Services
                     if (otherLine != line1 && otherLine != line2)
                     {
                         var field = isRowBased ? _fields2D[otherLine, pos] : _fields2D[pos, otherLine];
-                        removed += field.RemoveCandidateFromField(candidate);
+                        removed += RemoveCandidateFromField(field, candidate, "Strategy 7");
                     }
                 }
             }
@@ -484,18 +482,22 @@ namespace SudokuSolver.Api.Services
             return totalCandidatesRemoved;
         }
 
-
         private int CheckYWing(Field pivot, Field pincer1, Field pincer2, int candidateToRemove)
         {
-            return _fields
-                .Except(new[] { pivot, pincer1, pincer2 })
-                .Where(f => f.Candidates.Contains(candidateToRemove) && pincer1.IntersectsWith(f) && pincer2.IntersectsWith(f))
-                .Select(f =>
+            int nrOfCandidatesRemoved = 0;
+
+            // Find fields that intersect with both pincers and remove the z candidate
+            var fieldsToCheck = _fields.Except([pivot, pincer1, pincer2]).Where(f => f.Candidates.Contains(candidateToRemove));
+
+            foreach (var field in fieldsToCheck)
+            {
+                if (pincer1.IntersectsWith(field) && pincer2.IntersectsWith(field))
                 {
-                    f.RemoveCandidateFromField(candidateToRemove);
-                    return 1;
-                })
-                .Sum();  // Sum up the number of candidates removed
+                    RemoveCandidateFromField(field, candidateToRemove, "Strategy 8");
+                    nrOfCandidatesRemoved++;
+                }
+            }
+            return nrOfCandidatesRemoved;
         }
 
         private IEnumerable<Field> GetPincerPossibilities(Field pivot, int candidate, IEnumerable<Field> fieldsWithTwoCandidates)
@@ -595,27 +597,33 @@ namespace SudokuSolver.Api.Services
             return sudokuArray;
         }
 
-        public override string ToString()
+        private int RemoveCandidateFromFields(IEnumerable<Field> fields, int candidate, string strategie)
         {
-            var output = string.Empty;
+            int nrOfCandidatesRemoved = 0;
 
-            for (int row = 0; row < 9; row++)
+            foreach (var field in fields)
+                nrOfCandidatesRemoved += RemoveCandidateFromField(field, candidate, strategie);
+
+            return nrOfCandidatesRemoved;
+        }
+
+        private int RemoveCandidateFromField(Field field, int candidate, string strategie)
+        {
+            if (field.Candidates.Contains(candidate))
             {
-                if (row % 3 == 0)
-                    output += row == 0 ? "╔═══╦═══╦═══╗\r\n" : "╠═══╬═══╬═══╣\r\n";
+                _logger.LogDebug($"{strategie}: remove candidate {candidate} from {field}");
+                var remove = field.Candidates.Single(c => c == candidate);
+                field.Candidates.Remove(remove);
 
-                for (int col = 0; col < 9; col++)
-                {
-                    if (col % 3 == 0)
-                        output += "║";
+                if (field.Candidates.Count == 0)
+                    throw new InvalidOperationException($"No candidates left after removing value {candidate}. Field: {field}");
 
-                    output += _fields2D[row, col].Value == null ? " " : _fields2D[row, col].Value.ToString();
-                }
-                output += "║\r\n";
+                return 1;
             }
-            output += "╚═══╩═══╩═══╝";
-
-            return output;
+            else
+            {
+                return 0;
+            }
         }
     }
 }

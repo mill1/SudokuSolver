@@ -46,11 +46,11 @@ namespace SudokuSolver.Api.Extensions
 
         public static IEnumerable<Field> OtherPeers(this Field field)
         {
-            // Combine all peers and remove duplicates using Distinct
+            // Combine all peers and remove duplicates
             return field.OtherRowFields()
            .Concat(field.OtherColumnFields())
            .Concat(field.OtherBlockFields())
-           .Distinct();  // Ensure no duplicates (if a field shares both row and block, for example)
+           .Distinct(); 
         }
 
         public static bool ContainsValue(this IEnumerable<Field> fields, int value)
@@ -61,34 +61,6 @@ namespace SudokuSolver.Api.Extensions
         public static bool CandidatesContainsValue(this IEnumerable<Field> fields, int value)
         {
             return fields.Any(x => x.Candidates.Contains(value));
-        }
-
-        public static int RemoveCandidateFromFields(this IEnumerable<Field> fields, int candidate)
-        {
-            int nrOfCandidatesRemoved = 0;
-
-            foreach (var field in fields)
-                nrOfCandidatesRemoved += RemoveCandidateFromField(field, candidate);
-
-            return nrOfCandidatesRemoved;
-        }
-
-        public static int RemoveCandidateFromField(this Field field, int value)
-        {
-            if (field.Candidates.Contains(value))
-            {
-                var remove = field.Candidates.Single(c => c == value);
-                field.Candidates.Remove(remove);
-
-                if (field.Candidates.Count == 0)
-                     throw new InvalidOperationException($"No candidates left after removing value {value}. Field: {field}");
-
-                return 1;
-            }
-            else
-            {
-                return 0;
-            }
         }
     }
 }

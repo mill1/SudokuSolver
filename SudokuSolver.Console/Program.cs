@@ -14,13 +14,9 @@ namespace SudokuSolver.AppConsole
                 else
                 {
                     if (args.Length == 1)
-                    {
                         SolveSoduku(args[0]);
-                    }
                     else
-                    {
                         throw new ArgumentException($"Expected args.Length: 1, encountered: {args.Length}");
-                    }
                 }
             }
             catch (Exception e)
@@ -73,6 +69,15 @@ namespace SudokuSolver.AppConsole
             return JsonConvert.DeserializeObject<string>(result);
         }
 
+        private static void PrintSudoku(string puzzle)
+        {
+            var array = ConvertStringToSudokuArray(puzzle);
+
+            WriteLine(Gridify(array), ConsoleColor.Cyan);
+            WriteLine("As one line:", ConsoleColor.Cyan);
+            WriteLine(puzzle, ConsoleColor.Cyan);
+        }
+
         private static void SolveSoduku(string puzzle)
         {
             using HttpClient client = GetHttpClient();
@@ -82,10 +87,9 @@ namespace SudokuSolver.AppConsole
             if (result.IsSuccessStatusCode)
             {                
                 var sudoku = JsonConvert.DeserializeObject<int[,]>(result.Content.ReadAsStringAsync().Result);
-
                 var solved = SudokuIsSolved(sudoku);
 
-                WriteLine(solved ? "Solved" : "Not solved", solved ? ConsoleColor.Green : ConsoleColor.Magenta);
+                WriteLine(solved ? "Solved." : "Not solved. This is how far I got:", solved ? ConsoleColor.Green : ConsoleColor.Magenta);
                 WriteLine(Gridify(sudoku), solved ? ConsoleColor.Green : ConsoleColor.Magenta);
             }
             if (result.StatusCode == System.Net.HttpStatusCode.BadRequest)
@@ -117,22 +121,13 @@ namespace SudokuSolver.AppConsole
                     if (col % 3 == 0)
                         output += "║";
 
-                    output += array[row, col] == null ? " " : array[row, col].ToString();
+                    output += array[row, col] == 0 ? " " : array[row, col].ToString();
                 }
                 output += "║\r\n";
             }
             output += "╚═══╩═══╩═══╝";
 
             return output;
-        }
-
-        private static void PrintSudoku(string puzzle)
-        {
-            var array = ConvertStringToSudokuArray(puzzle);
-
-            WriteLine(Gridify(array), ConsoleColor.Cyan);
-            WriteLine("As one line:", ConsoleColor.Cyan);
-            WriteLine(puzzle, ConsoleColor.Cyan);            
         }
 
         private static void PrintOptions()
