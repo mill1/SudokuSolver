@@ -1,20 +1,20 @@
-﻿using SudokuSolver.Extensions;
-using SudokuSolver.Models;
+﻿
+using SudokuSolver.Api.Exceptions;
+using SudokuSolver.Api.Extensions;
+using SudokuSolver.Api.Interfaces;
+using SudokuSolver.Api.Models;
 
-namespace SudokuSolver
+namespace SudokuSolver.Api.Services
 {
-    public class Sudoku
+    public class SudokuService : ISudokuService
     {
         private readonly Field[,] _fields2D;
-        private readonly List<Field> _fields = [];        
+        private readonly List<Field> _fields = [];
+        private readonly ILogger<SudokuService> _logger;
 
-        public Sudoku() : this(false)
+        public SudokuService(ILogger<SudokuService> logger)
         {
-        }
-
-        public Sudoku(bool debug)
-        {
-            Settings.Debug = debug;
+            _logger = logger;
 
             // Initialize fields
             _fields2D = new Field[9, 9];
@@ -30,21 +30,39 @@ namespace SudokuSolver
             }
         }
 
-        public int[,] Solve(string[] data)
+        public string GetSudoku()
+        {
+            string[] sudokus =
+            [
+                "000001030231090000065003100678924300103050006000136700009360570006019843300000000",
+                "400009000000000300500830960050008090070050000600043207700000006800064000305200408",
+                "020004700008200000900600000000008306506300004090500170000000900640001000000000018",
+                "904600000000000018020050460500001040400002000000090000080000700051008300000500006",
+                "500960004002000080000000003000000207000002000040750006000409000400001302000028005"
+            ];
+
+            return sudokus[Random.Shared.Next(0, 5)];
+        }
+
+        public int[,] Solve(string puzzle)
         {
             try
             {
-                Initialize(data);
-                ValidateInput();                    
-                SolveSudoku();
-                PrintResult();
+                _logger.LogInformation("Solve START", puzzle);
 
-                return ConvertFieldsToArray();
+                Initialize(puzzle);
+                ValidateInput();
+                SolveSudoku();
+
+                var grid = ConvertFieldsToGrid();
+
+                _logger.LogInformation("Solve END", grid);
+
+                return grid;
             }
             catch (Exception e)
             {
-                WriteLine(e, ConsoleColor.Red);
-                WriteLine(this, ConsoleColor.Red);
+                _logger.LogError($"{e.Message}\r\n\r\n{this}");
                 throw;
             }
         }
@@ -57,11 +75,8 @@ namespace SudokuSolver
             {
                 _iteration++;
 
-                if (Settings.Debug)
-                {
-                    WriteLine($"Iteration: {_iteration}");
-                    WriteLine(this, ConsoleColor.Cyan);
-                }
+                _logger.LogDebug($"Iteration: {_iteration}");
+                _logger.LogDebug($"{this}");
 
                 if (TryBasicCandidateElimination() > 0) continue;
                 if (TryNakedSingles() > 0) continue;
@@ -73,7 +88,7 @@ namespace SudokuSolver
                 if (TryYWing() > 0) continue;
 
                 break; // No more eliminations possible
-            }            
+            }
         }
 
         // 1. Per value try to remove candidates from other fields within the same segment (row, column or block).
@@ -91,8 +106,8 @@ namespace SudokuSolver
                     .Distinct()
                     .ToList();
 
-                foreach (var value in existingValues)
-                    totalCandidatesRemoved += field.RemoveCandidateFromField(value);
+                foreach (var value in existingValues)                
+                    totalCandidatesRemoved += RemoveCandidateFromField(field, value, "Strategy 1");                                    
             }
 
             return totalCandidatesRemoved;
@@ -110,11 +125,11 @@ namespace SudokuSolver
                 field.Candidates.Clear();
                 nrOfValuesSet++;
 
-                if (Settings.Debug)
-                    WriteLine($"Found solution (naked singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
+                _logger.LogDebug($"Found solution (naked singles): {field}");
 
                 // Remove this value from candidates in the same row, column, and block
-                field.OtherPeers().RemoveCandidateFromFields(value);
+                RemoveCandidateFromFields(field.OtherPeers(), value, "Strategy 2");
+
             }
 
             return nrOfValuesSet;
@@ -154,12 +169,11 @@ namespace SudokuSolver
                         field.Candidates.Clear();
                         nrOfValuesSet++;
 
-                        if (Settings.Debug)
-                            WriteLine($"Found solution (hidden singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
+                        _logger.LogDebug($"Found solution (hidden singles): {field}");
                     }
 
                     // Remove this value from candidates in the same row, column, and block
-                    field.OtherPeers().RemoveCandidateFromFields(value);
+                    RemoveCandidateFromFields(field.OtherPeers(), value, "Strategy 3");
                 }
             }
 
@@ -184,7 +198,7 @@ namespace SudokuSolver
             return nrOfCandidatesRemoved;
         }
 
-        private static int FindFieldsWithSimilarCandidates(IEnumerable<Field> fields, int candidateCount)
+        private int FindFieldsWithSimilarCandidates(IEnumerable<Field> fields, int candidateCount)
         {
             int nrOfCandidatesRemoved = 0;
 
@@ -193,7 +207,7 @@ namespace SudokuSolver
 
             foreach (var combination in candidateCombinations)
             {
-                var matchingFields = fields.Where(f => combination.All(c => f.Candidates.Contains(c))).ToList();
+                var matchingFields = fields.Where(f => combination.TrueForAll(c => f.Candidates.Contains(c))).ToList();
 
                 // If exactly candidateCount fields match the combination, check further
                 if (matchingFields.Count == candidateCount)
@@ -219,7 +233,8 @@ namespace SudokuSolver
                             {
                                 if (!combination.Contains(candidate))
                                 {
-                                    field.RemoveCandidateFromField(candidate);
+                                    
+                                    RemoveCandidateFromField(field, candidate, "Strategy 4");
                                     nrOfCandidatesRemoved += 1;
                                 }
                             }
@@ -234,7 +249,7 @@ namespace SudokuSolver
         private int TryHiddenSubsets()
         {
             int nrOfCandidatesRemoved = 0;
-            
+
             for (int subsetSize = 2; subsetSize <= 4; subsetSize++)
             {
                 nrOfCandidatesRemoved += TryHiddenSubset(subsetSize);
@@ -267,11 +282,11 @@ namespace SudokuSolver
             foreach (var subset in candidateSubsets)
             {
                 // Find all fields that contain at least one candidate from the subset
-                var fieldsWithSubsetCandidates = segment.Where(f => subset.Any(c => f.Candidates.Contains(c))).ToList();
+                var fieldsWithSubsetCandidates = segment.Where(f => subset.Exists(c => f.Candidates.Contains(c))).ToList();
 
                 // If exactly 'subsetSize' fields contain these candidates, we have a hidden subset
                 if (fieldsWithSubsetCandidates.Count == subsetSize &&
-                    subset.All(c => fieldsWithSubsetCandidates.Count(f => f.Candidates.Contains(c)) >= 1))
+                    subset.All(c => fieldsWithSubsetCandidates.Exists(f => f.Candidates.Contains(c))))
                 {
                     foreach (var field in fieldsWithSubsetCandidates)
                     {
@@ -279,7 +294,7 @@ namespace SudokuSolver
                         var extraCandidates = field.Candidates.Except(subset).ToList();
                         foreach (var candidate in extraCandidates)
                         {
-                            nrOfCandidatesRemoved += field.RemoveCandidateFromField(candidate);
+                            nrOfCandidatesRemoved += RemoveCandidateFromField(field, candidate, "Strategy 5");
                         }
                     }
                 }
@@ -313,8 +328,6 @@ namespace SudokuSolver
                 }
             }
 
-            int x = nrOfCandidatesRemoved;
-
             // Apply Claiming for each row and column
             for (int i = 1; i <= 9; i++)
             {
@@ -339,58 +352,42 @@ namespace SudokuSolver
         {
             if (!candidateFields.Any()) return null;
             int row = candidateFields[0].Row;
-            return candidateFields.TrueForAll(f => f.Row == row) ? row : (int?)null;
+            return candidateFields.TrueForAll(f => f.Row == row) ? row : null;
         }
 
         private int? GetLockedColumn(List<Field> candidateFields)
         {
             if (!candidateFields.Any()) return null;
             int column = candidateFields[0].Column;
-            return candidateFields.TrueForAll(f => f.Column == column) ? column : (int?)null;
+            return candidateFields.TrueForAll(f => f.Column == column) ? column : null;
         }
 
         private int? GetLockedBlock(List<Field> candidateFields)
         {
             if (!candidateFields.Any()) return null;
             int block = candidateFields[0].Block;
-            return candidateFields.TrueForAll(f => f.Block == block) ? block : (int?)null;
+            return candidateFields.TrueForAll(f => f.Block == block) ? block : null;
         }
 
         // Eliminate candidate from row outside the block (Pointing)
         private int EliminateFromRowOutsideBlock(int block, int row, int value)
         {
             var fieldsOutsideBlock = _fields.Rows(row).Where(f => f.Block != block);
-            return fieldsOutsideBlock.RemoveCandidateFromFields(value);
+            return RemoveCandidateFromFields(fieldsOutsideBlock, value, "Strategy 6");
         }
 
         // Eliminate candidate from column outside the block (Pointing)
         private int EliminateFromColumnOutsideBlock(int block, int column, int value)
         {
             var fieldsOutsideBlock = _fields.Columns(column).Where(f => f.Block != block);
-            return fieldsOutsideBlock.RemoveCandidateFromFields(value);
+            return RemoveCandidateFromFields(fieldsOutsideBlock, value, "Strategy 6");
         }
 
         // Eliminate candidate from block outside the row/column (Claiming)
         private int EliminateFromBlockOutsideLine(IEnumerable<Field> blockFields, List<Field> lineFields, int value)
         {
             var fieldsOutsideLine = blockFields.Except(lineFields);
-            return fieldsOutsideLine.RemoveCandidateFromFields(value);
-        }
-
-        private void PrintResult()
-        {
-            if (SudokuIsSolved())
-            {
-                CheckValiditySolution();
-                WriteLine("Solved", ConsoleColor.Green);
-            }
-            else
-            {
-                WriteLine("Not solved", ConsoleColor.DarkMagenta);
-                if (Settings.Debug)
-                    PrintDebugInformation(true);
-            }
-            WriteLine(this, ConsoleColor.Yellow);
+            return RemoveCandidateFromFields(fieldsOutsideLine, value, "Strategy 6");
         }
 
         // 7. Google: Sudoku X-Wing strategy explained
@@ -443,7 +440,7 @@ namespace SudokuSolver
                     if (otherLine != line1 && otherLine != line2)
                     {
                         var field = isRowBased ? _fields2D[otherLine, pos] : _fields2D[pos, otherLine];
-                        removed += field.RemoveCandidateFromField(candidate);
+                        removed += RemoveCandidateFromField(field, candidate, "Strategy 7");
                     }
                 }
             }
@@ -492,20 +489,23 @@ namespace SudokuSolver
             return totalCandidatesRemoved;
         }
 
-
         private int CheckYWing(Field pivot, Field pincer1, Field pincer2, int candidateToRemove)
         {
-            return _fields
-                .Except(new[] { pivot, pincer1, pincer2 })
-                .Where(f => f.Candidates.Contains(candidateToRemove) && pincer1.IntersectsWith(f) && pincer2.IntersectsWith(f))
-                .Select(f =>
-                {
-                    f.RemoveCandidateFromField(candidateToRemove);
-                    return 1;
-                })
-                .Sum();  // Sum up the number of candidates removed
-        }
+            int nrOfCandidatesRemoved = 0;
 
+            // Find fields that intersect with both pincers and remove the z candidate
+            var fieldsToCheck = _fields.Except([pivot, pincer1, pincer2]).Where(f => f.Candidates.Contains(candidateToRemove));
+
+            foreach (var field in fieldsToCheck)
+            {
+                if (pincer1.IntersectsWith(field) && pincer2.IntersectsWith(field))
+                {
+                    RemoveCandidateFromField(field, candidateToRemove, "Strategy 8");
+                    nrOfCandidatesRemoved++;
+                }
+            }
+            return nrOfCandidatesRemoved;
+        }
 
         private IEnumerable<Field> GetPincerPossibilities(Field pivot, int candidate, IEnumerable<Field> fieldsWithTwoCandidates)
         {
@@ -520,26 +520,28 @@ namespace SudokuSolver
                 ? new List<List<int>> { new List<int>() }
                 : list.SelectMany((e, i) =>
                     GetCombinations(list.Skip(i + 1).ToList(), length - 1)
-                        .Select(c => new List<int> {e}.Concat(c).ToList())
+                        .Select(c => new List<int> { e }.Concat(c).ToList())
                   ).ToList();
         }
 
         // Initialize the puzzle
-        private void Initialize(string[] data)
+        private void Initialize(string puzzle)
         {
+            var data = puzzle.SplitStringByLength(9).ToArray();
+
             // Check if the input has exactly 9 rows and 9 columns
             if (data.Length != 9 || data.Any(row => row.Length != 9))
-                throw new ArgumentException("Invalid puzzle. Expected 9x9 matrix.");
+                throw new InvalidPuzzleException("Expected 9x9 grid.");
 
             // Ensure all characters are digits 1-9 or spaces (indicating empty cells)
-            if (data.Any(row => row.Any(ch => !(char.IsDigit(ch) && ch != '0') && ch != ' ')))
-                throw new ArgumentException("Invalid puzzle. Allowed characters: 1-9 and ' ' (space)");
+            if (data.Any(row => row.Any(ch => !char.IsDigit(ch))))
+                throw new InvalidPuzzleException("Allowed characters: 0-9");
 
             for (int row = 0; row < 9; row++)
             {
                 for (int col = 0; col < 9; col++)
                 {
-                    if (data[row][col] != ' ')
+                    if (data[row][col] != '0')
                     {
                         var value = int.Parse(data[row][col].ToString());
                         _fields2D[row, col].Value = value;
@@ -553,7 +555,7 @@ namespace SudokuSolver
         {
             // Check if the puzzle has at least 17 clues
             if (_fields.Count(f => f.Value.HasValue) < 17)
-                throw new ArgumentException("Invalid puzzle. Minimum number of clues: 17");            
+                throw new InvalidPuzzleException("Minimum number of clues: 17");
 
             // Validate rows, columns, and blocks
             ValidateSegments();
@@ -564,17 +566,17 @@ namespace SudokuSolver
             for (int i = 1; i <= 9; i++)
             {
                 if (!HasUniqueNumbers(_fields.Rows(i)))
-                    throw new ArgumentException($"Invalid puzzle. Row {i}: duplicate values found.");
+                    throw new InvalidPuzzleException($"Row {i}: duplicate values found.");
                 if (!HasUniqueNumbers(_fields.Columns(i)))
-                    throw new ArgumentException($"Invalid puzzle. Column {i}: duplicate values found.");
+                    throw new InvalidPuzzleException($"Column {i}: duplicate values found.");
                 if (!HasUniqueNumbers(_fields.Blocks(i)))
-                    throw new ArgumentException($"Invalid puzzle. Block {i}: duplicate values found.");
+                    throw new InvalidPuzzleException($"Block {i}: duplicate values found.");
             }
         }
 
         private bool HasUniqueNumbers(IEnumerable<Field> fields)
         {
-            var numbers = fields.Where(f => f.Value.HasValue)
+            var numbers = fields.Where(f => f.Value.HasValue && f.Value != 0)
                                  .Select(f => f.Value.Value)
                                  .ToList();
 
@@ -587,100 +589,48 @@ namespace SudokuSolver
             return _fields.TrueForAll(f => f.Value.HasValue);
         }
 
-        private int[,] ConvertFieldsToArray()
+        private int[,] ConvertFieldsToGrid()
         {
-            int[,] sudokuArray = new int[9, 9];
+            int[,] grid = new int[9, 9];
 
             foreach (var field in _fields)
             {
                 int rowIndex = field.Row - 1;
                 int colIndex = field.Column - 1;
 
-                sudokuArray[rowIndex, colIndex] = field.Value ?? 0;
+                grid[rowIndex, colIndex] = field.Value ?? 0;
             }
 
-            return sudokuArray;
+            return grid;
         }
 
-        private void CheckValiditySolution()
+        private int RemoveCandidateFromFields(IEnumerable<Field> fields, int candidate, string strategie)
         {
-            List<int> actual;
+            int nrOfCandidatesRemoved = 0;
 
-            for (int i = 1; i <= 9; i++)
+            foreach (var field in fields)
+                nrOfCandidatesRemoved += RemoveCandidateFromField(field, candidate, strategie);
+
+            return nrOfCandidatesRemoved;
+        }
+
+        private int RemoveCandidateFromField(Field field, int candidate, string strategie)
+        {
+            if (field.Candidates.Contains(candidate))
             {
-                actual = _fields.Rows(i).Select(f => (int)f.Value).ToList();
-                CheckValidity(actual, i, "Row");
+                _logger.LogDebug($"{strategie}: remove candidate {candidate} from {field}");
+                var remove = field.Candidates.Single(c => c == candidate);
+                field.Candidates.Remove(remove);
 
-                actual = _fields.Columns(i).Select(f => (int)f.Value).ToList();
-                CheckValidity(actual, i, "Column");
+                if (field.Candidates.Count == 0)
+                    throw new InvalidOperationException($"No candidates left after removing value {candidate}. Field: {field}");
 
-                actual = _fields.Blocks(i).Select(f => (int)f.Value).ToList();
-                CheckValidity(actual, i, "Block");
-            }
-        }
-
-        private void CheckValidity(List<int> actual, int i, string segment)
-        {
-            var expected = Enumerable.Range(1, 9).ToList();
-            var result = expected.Except(actual);
-
-            if (result.Any())
-            {
-                WriteLine(this, ConsoleColor.Magenta);
-                throw new InvalidOperationException($"Invalid solution! {segment} {i}, missing value: {result.First()}");
-            }
-        }
-
-        public override string ToString()
-        {
-            var output = string.Empty;
-
-            for (int row = 0; row < 9; row++)
-            {
-                if (row % 3 == 0)
-                    output += row == 0 ? "╔═══╦═══╦═══╗\r\n" : "╠═══╬═══╬═══╣\r\n";
-
-                for (int col = 0; col < 9; col++)
-                {
-                    if (col % 3 == 0)
-                        output += "║";
-
-                    output += _fields2D[row, col].Value == null ? " " : _fields2D[row, col].Value.ToString();
-                }
-                output += "║\r\n";
-            }
-            output += "╚═══╩═══╩═══╝";
-
-            return output;
-        }
-
-        private static void WriteLine(object obj, ConsoleColor foregroundColor = ConsoleColor.White, ConsoleColor backgroundColor = ConsoleColor.Black)
-        {
-            Console.ForegroundColor = foregroundColor;
-            Console.BackgroundColor = backgroundColor;
-            Console.WriteLine(obj);
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.BackgroundColor = ConsoleColor.Black;
-        }
-
-        private void PrintDebugInformation(bool perRow)
-        {
-            WriteLine("################# DEBUG START ###################", ConsoleColor.Cyan);
-
-            if (perRow)
-            {
-                for (int row = 0; row < 9; row++)
-                    for (int col = 0; col < 9; col++)
-                        WriteLine(_fields2D[row, col], ConsoleColor.Cyan);
+                return 1;
             }
             else
             {
-                for (int col = 0; col < 9; col++)
-                    for (int row = 0; row < 9; row++)
-                        WriteLine(_fields2D[row, col], ConsoleColor.Cyan);
+                return 0;
             }
-
-            WriteLine("################## DEBUG END ####################", ConsoleColor.Cyan);
         }
     }
 }
