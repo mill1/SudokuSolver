@@ -44,7 +44,7 @@ namespace SudokuSolver.AppConsole
                 switch (answer)
                 {
                     case "g":
-                        var sudoku = GetSoduku();
+                        var sudoku = GetSudoku();
                         PrintSudoku(sudoku);
                         break;
                     case "s":
@@ -63,7 +63,7 @@ namespace SudokuSolver.AppConsole
             } while (running);
         }
 
-        private static List<string> GetSoduku()
+        private static List<string> GetSudoku()
         {
             using HttpClient client = GetHttpClient();
             
@@ -88,6 +88,7 @@ namespace SudokuSolver.AppConsole
                 var x = result.Content.ReadAsStringAsync().Result;
 
                 var sudoku = JsonConvert.DeserializeObject<int[,]>(x);
+
                 WriteLine(PrintIt(sudoku), ConsoleColor.Green);
             }
             if (result.StatusCode == System.Net.HttpStatusCode.BadRequest)
@@ -98,6 +99,13 @@ namespace SudokuSolver.AppConsole
             WriteLine($"Status code: {(int)result.StatusCode} ({result.StatusCode})", ConsoleColor.Red);
         }
 
+        private static bool SudokuIsSolved(int[,] sudoku)
+        {
+            var flattened = sudoku.Cast<int>().ToList();
+            return flattened.TrueForAll(f => f != 0); // TODO
+        }
+
+        // TODO rename
         public static string PrintIt(int[,] _fields2D)
         {
             var output = string.Empty;

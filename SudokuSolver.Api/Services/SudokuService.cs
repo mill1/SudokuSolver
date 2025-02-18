@@ -1,4 +1,5 @@
 ﻿
+using SudokuSolver.Api.Controllers;
 using SudokuSolver.Api.Exceptions;
 using SudokuSolver.Api.Extensions;
 using SudokuSolver.Api.Models;
@@ -9,9 +10,12 @@ namespace SudokuSolver.Api.Services
     {
         private readonly Field[,] _fields2D;
         private readonly List<Field> _fields = [];
+        private readonly ILogger<SudokuService> _logger;
 
-        public SudokuService()
+        public SudokuService(ILogger<SudokuService> logger)
         {
+            _logger = logger;
+
             // Initialize fields
             _fields2D = new Field[9, 9];
 
@@ -47,14 +51,12 @@ namespace SudokuSolver.Api.Services
                 Initialize(puzzle);
                 ValidateInput();
                 SolveSudoku();
-                PrintResult();
 
                 return ConvertFieldsToArray();
             }
             catch (Exception e)
             {
-                WriteLine(e, ConsoleColor.Red);
-                WriteLine(this, ConsoleColor.Red);
+                _logger.LogError($"{e.Message}\r\n\r\n{this}");
                 throw;
             }
         }
@@ -67,12 +69,8 @@ namespace SudokuSolver.Api.Services
             {
                 _iteration++;
 
-                // TODO Setting.Debug
-                //if (Settings.Debug)
-                //{
-                //    WriteLine($"Iteration: {_iteration}");
-                //    WriteLine(this, ConsoleColor.Cyan);
-                //}
+                _logger.LogDebug($"Iteration: {_iteration}");
+                _logger.LogDebug($"{this}");
 
                 if (TryBasicCandidateElimination() > 0) continue;
                 if (TryNakedSingles() > 0) continue;
@@ -121,8 +119,7 @@ namespace SudokuSolver.Api.Services
                 field.Candidates.Clear();
                 nrOfValuesSet++;
 
-                // TODO if (Settings.Debug)
-                    WriteLine($"Found solution (naked singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
+                _logger.LogDebug($"Found solution (naked singles): {field}");
 
                 // Remove this value from candidates in the same row, column, and block
                 field.OtherPeers().RemoveCandidateFromFields(value);
@@ -165,8 +162,7 @@ namespace SudokuSolver.Api.Services
                         field.Candidates.Clear();
                         nrOfValuesSet++;
 
-                        // TODO if (Settings.Debug)
-                            WriteLine($"Found solution (hidden singles): {field}", ConsoleColor.Yellow, ConsoleColor.DarkBlue);
+                        _logger.LogDebug($"Found solution (hidden singles): {field}");
                     }
 
                     // Remove this value from candidates in the same row, column, and block
@@ -204,7 +200,7 @@ namespace SudokuSolver.Api.Services
 
             foreach (var combination in candidateCombinations)
             {
-                var matchingFields = fields.Where(f => combination.All(c => f.Candidates.Contains(c))).ToList();
+                var matchingFields = fields.Where(f => combination.TrueForAll(c => f.Candidates.Contains(c))).ToList();
 
                 // If exactly candidateCount fields match the combination, check further
                 if (matchingFields.Count == candidateCount)
@@ -278,11 +274,11 @@ namespace SudokuSolver.Api.Services
             foreach (var subset in candidateSubsets)
             {
                 // Find all fields that contain at least one candidate from the subset
-                var fieldsWithSubsetCandidates = segment.Where(f => subset.Any(c => f.Candidates.Contains(c))).ToList();
+                var fieldsWithSubsetCandidates = segment.Where(f => subset.Exists(c => f.Candidates.Contains(c))).ToList();
 
                 // If exactly 'subsetSize' fields contain these candidates, we have a hidden subset
                 if (fieldsWithSubsetCandidates.Count == subsetSize &&
-                    subset.All(c => fieldsWithSubsetCandidates.Count(f => f.Candidates.Contains(c)) >= 1))
+                    subset.All(c => fieldsWithSubsetCandidates.Exists(f => f.Candidates.Contains(c))))
                 {
                     foreach (var field in fieldsWithSubsetCandidates)
                     {
@@ -386,22 +382,6 @@ namespace SudokuSolver.Api.Services
         {
             var fieldsOutsideLine = blockFields.Except(lineFields);
             return fieldsOutsideLine.RemoveCandidateFromFields(value);
-        }
-
-        private void PrintResult()
-        {
-            if (SudokuIsSolved())
-            {
-                CheckValiditySolution();
-                WriteLine("Solved", ConsoleColor.Green);
-            }
-            else
-            {
-                WriteLine("Not solved", ConsoleColor.DarkMagenta);
-                // TODO if (Settings.Debug)
-                    PrintDebugInformation(true);
-            }
-            WriteLine(this, ConsoleColor.Yellow);
         }
 
         // 7. Google: Sudoku X-Wing strategy explained
@@ -517,7 +497,6 @@ namespace SudokuSolver.Api.Services
                 .Sum();  // Sum up the number of candidates removed
         }
 
-
         private IEnumerable<Field> GetPincerPossibilities(Field pivot, int candidate, IEnumerable<Field> fieldsWithTwoCandidates)
         {
             return fieldsWithTwoCandidates
@@ -587,7 +566,7 @@ namespace SudokuSolver.Api.Services
 
         private bool HasUniqueNumbers(IEnumerable<Field> fields)
         {
-            var numbers = fields.Where(f => f.Value.HasValue)
+            var numbers = fields.Where(f => f.Value.HasValue && f.Value != 0)
                                  .Select(f => f.Value.Value)
                                  .ToList();
 
@@ -615,35 +594,6 @@ namespace SudokuSolver.Api.Services
             return sudokuArray;
         }
 
-        private void CheckValiditySolution()
-        {
-            List<int> actual;
-
-            for (int i = 1; i <= 9; i++)
-            {
-                actual = _fields.Rows(i).Select(f => (int)f.Value).ToList();
-                CheckValidity(actual, i, "Row");
-
-                actual = _fields.Columns(i).Select(f => (int)f.Value).ToList();
-                CheckValidity(actual, i, "Column");
-
-                actual = _fields.Blocks(i).Select(f => (int)f.Value).ToList();
-                CheckValidity(actual, i, "Block");
-            }
-        }
-
-        private void CheckValidity(List<int> actual, int i, string segment)
-        {
-            var expected = Enumerable.Range(1, 9).ToList();
-            var result = expected.Except(actual);
-
-            if (result.Any())
-            {
-                WriteLine(this, ConsoleColor.Magenta);
-                throw new InvalidOperationException($"Invalid solution! {segment} {i}, missing value: {result.First()}");
-            }
-        }
-
         public override string ToString()
         {
             var output = string.Empty;
@@ -665,35 +615,6 @@ namespace SudokuSolver.Api.Services
             output += "╚═══╩═══╩═══╝";
 
             return output;
-        }
-
-        private static void WriteLine(object obj, ConsoleColor foregroundColor = ConsoleColor.White, ConsoleColor backgroundColor = ConsoleColor.Black)
-        {
-            Console.ForegroundColor = foregroundColor;
-            Console.BackgroundColor = backgroundColor;
-            Console.WriteLine(obj);
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.BackgroundColor = ConsoleColor.Black;
-        }
-
-        private void PrintDebugInformation(bool perRow)
-        {
-            WriteLine("################# DEBUG START ###################", ConsoleColor.Cyan);
-
-            if (perRow)
-            {
-                for (int row = 0; row < 9; row++)
-                    for (int col = 0; col < 9; col++)
-                        WriteLine(_fields2D[row, col], ConsoleColor.Cyan);
-            }
-            else
-            {
-                for (int col = 0; col < 9; col++)
-                    for (int row = 0; row < 9; row++)
-                        WriteLine(_fields2D[row, col], ConsoleColor.Cyan);
-            }
-
-            WriteLine("################## DEBUG END ####################", ConsoleColor.Cyan);
         }
     }
 }

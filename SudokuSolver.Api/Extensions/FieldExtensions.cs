@@ -83,9 +83,6 @@ namespace SudokuSolver.Api.Extensions
                 if (field.Candidates.Count == 0)
                      throw new InvalidOperationException($"No candidates left after removing value {value}. Field: {field}");
 
-                // TODO if (Settings.Debug)
-                    Console.WriteLine($"Removed candidate {value} from {field}...");
-
                 return 1;
             }
             else
