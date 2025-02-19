@@ -62,7 +62,7 @@ namespace SudokuSolver.Api.Services
             }
             catch (Exception e)
             {
-                _logger.LogError($"{e.Message}\r\n\r\n{this}");
+                _logger.LogError("e.Message",e);
                 throw;
             }
         }
