@@ -44,27 +44,19 @@ namespace SudokuSolver.Api.Services
             return sudokus[Random.Shared.Next(0, 5)];
         }
 
-        public int[,] Solve(string puzzle)
+        public int[,] Solve(string sudoku)
         {
-            try
-            {
-                _logger.LogInformation("Solve START", puzzle);
+            _logger.LogInformation("Solve START. Sudoku: {Sudoku}", sudoku);
 
-                Initialize(puzzle);
-                ValidateInput();
-                SolveSudoku();
+            Initialize(sudoku);
+            ValidateInput();
+            SolveSudoku();
 
-                var grid = ConvertFieldsToGrid();
+            var result = ConvertFieldsToGrid();
 
-                _logger.LogInformation("Solve END", grid);
+            _logger.LogInformation("Solve END. Result: {Result} ", result);
 
-                return grid;
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e.Message, e);
-                throw;
-            }
+            return result;
         }
 
         private void SolveSudoku()
@@ -75,8 +67,8 @@ namespace SudokuSolver.Api.Services
             {
                 _iteration++;
 
-                _logger.LogDebug($"Iteration: {_iteration}");
-                _logger.LogDebug($"{this}");
+                _logger.LogDebug("Iteration: {Iteration}", _iteration);
+                _logger.LogDebug("Status:\r\n{Sodoku}", ToString());
 
                 if (TryBasicCandidateElimination() > 0) continue;
                 if (TryNakedSingles() > 0) continue;
@@ -125,11 +117,10 @@ namespace SudokuSolver.Api.Services
                 field.Candidates.Clear();
                 nrOfValuesSet++;
 
-                _logger.LogDebug($"Found solution (naked singles): {field}");
+                _logger.LogDebug("Found solution (naked singles): {Field}", field);
 
                 // Remove this value from candidates in the same row, column, and block
                 RemoveCandidateFromFields(field.OtherPeers(), value, "Strategy 2");
-
             }
 
             return nrOfValuesSet;
@@ -169,7 +160,7 @@ namespace SudokuSolver.Api.Services
                         field.Candidates.Clear();
                         nrOfValuesSet++;
 
-                        _logger.LogDebug($"Found solution (hidden singles): {field}");
+                        _logger.LogDebug("Found solution (hidden singles): {Field}", field);
                     }
 
                     // Remove this value from candidates in the same row, column, and block
@@ -225,23 +216,30 @@ namespace SudokuSolver.Api.Services
 
                     if (validCombination)
                     {
-                        // Remove other candidates from the matching fields
-                        foreach (var field in matchingFields)
-                        {
-                            var candidates = field.Candidates.ToList();
-                            foreach (int candidate in candidates)
-                            {
-                                if (!combination.Contains(candidate))
-                                {
-                                    
-                                    RemoveCandidateFromField(field, candidate, "Strategy 4");
-                                    nrOfCandidatesRemoved += 1;
-                                }
-                            }
-                        }
+                        nrOfCandidatesRemoved = RemoveCandidatesFromMatchingFields(combination, matchingFields, nrOfCandidatesRemoved);
                     }
                 }
             }
+            return nrOfCandidatesRemoved;
+        }
+
+        private int RemoveCandidatesFromMatchingFields(List<int> combination, List<Field> matchingFields, int nrOfCandidatesRemoved)
+        {
+            // Remove other candidates from the matching fields
+            foreach (var field in matchingFields)
+            {
+                var candidates = field.Candidates.ToList();
+                foreach (int candidate in candidates)
+                {
+                    if (!combination.Contains(candidate))
+                    {
+
+                        RemoveCandidateFromField(field, candidate, "Strategy 4");
+                        nrOfCandidatesRemoved += 1;
+                    }
+                }
+            }
+
             return nrOfCandidatesRemoved;
         }
 
@@ -524,18 +522,18 @@ namespace SudokuSolver.Api.Services
                   ).ToList();
         }
 
-        // Initialize the puzzle
-        private void Initialize(string puzzle)
+        // Initialize and validate the sudoku
+        private void Initialize(string sudoku)
         {
-            var data = puzzle.SplitStringByLength(9).ToArray();
+            var data = sudoku.SplitStringByLength(9).ToArray();
 
             // Check if the input has exactly 9 rows and 9 columns
             if (data.Length != 9 || data.Any(row => row.Length != 9))
-                throw new InvalidPuzzleException("Expected 9x9 grid.");
+                throw new InvalidSudokuException("Expected 9x9 grid.");
 
             // Ensure all characters are digits 1-9 or spaces (indicating empty cells)
             if (data.Any(row => row.Any(ch => !char.IsDigit(ch))))
-                throw new InvalidPuzzleException("Allowed characters: 0-9");
+                throw new InvalidSudokuException("Allowed characters: 0-9");
 
             for (int row = 0; row < 9; row++)
             {
@@ -555,7 +553,7 @@ namespace SudokuSolver.Api.Services
         {
             // Check if the puzzle has at least 17 clues
             if (_fields.Count(f => f.Value.HasValue) < 17)
-                throw new InvalidPuzzleException("Minimum number of clues: 17");
+                throw new InvalidSudokuException("Minimum number of clues: 17");
 
             // Validate rows, columns, and blocks
             ValidateSegments();
@@ -566,11 +564,11 @@ namespace SudokuSolver.Api.Services
             for (int i = 1; i <= 9; i++)
             {
                 if (!HasUniqueNumbers(_fields.Rows(i)))
-                    throw new InvalidPuzzleException($"Row {i}: duplicate values found.");
+                    throw new InvalidSudokuException($"Row {i}: duplicate values found.");
                 if (!HasUniqueNumbers(_fields.Columns(i)))
-                    throw new InvalidPuzzleException($"Column {i}: duplicate values found.");
+                    throw new InvalidSudokuException($"Column {i}: duplicate values found.");
                 if (!HasUniqueNumbers(_fields.Blocks(i)))
-                    throw new InvalidPuzzleException($"Block {i}: duplicate values found.");
+                    throw new InvalidSudokuException($"Block {i}: duplicate values found.");
             }
         }
 
@@ -614,16 +612,16 @@ namespace SudokuSolver.Api.Services
             return nrOfCandidatesRemoved;
         }
 
-        private int RemoveCandidateFromField(Field field, int candidate, string strategie)
+        private int RemoveCandidateFromField(Field field, int candidate, string strategy)
         {
             if (field.Candidates.Contains(candidate))
             {
-                _logger.LogDebug($"{strategie}: remove candidate {candidate} from {field}");
+                _logger.LogDebug("{Strategy}: remove candidate {Candidate} from {Field}", strategy, candidate, field);
                 var remove = field.Candidates.Single(c => c == candidate);
                 field.Candidates.Remove(remove);
 
                 if (field.Candidates.Count == 0)
-                    throw new InvalidOperationException($"No candidates left after removing value {candidate}. Field: {field}");
+                    throw new InvalidOperationException($"No candidates left after removing {candidate}. Field: {field}");
 
                 return 1;
             }

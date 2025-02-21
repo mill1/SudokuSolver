@@ -41,7 +41,7 @@
 
         public override string ToString()
         {
-            return $"Row: {Row} Col: {Column} Block: {Block} Val: {Value} Cand.: {string.Join(' ', Candidates)}";
+            return $"R{Row}C{Column} Block: {Block} Value: {Value ?? 0} Cand.: {string.Join(' ', Candidates)}";
         }
     }
 }

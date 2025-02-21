@@ -10,7 +10,7 @@ namespace SudokuSolverTests
     public class ServiceTests
     {
         [TestMethod]
-        public void ShouldThrowExceptionInvalidPuzzleMinimumClues()
+        public void ShouldThrowExceptionInvalidSudokuMinimumClues()
         {
             // Prepare
             string data =  
@@ -28,7 +28,7 @@ namespace SudokuSolverTests
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data.Replace(' ', '0')))
-                .Should().Throw<InvalidPuzzleException>()
+                .Should().Throw<InvalidSudokuException>()
                 .Where(e => e.Message.Equals("Minimum number of clues: 17"));
         }
 
@@ -36,29 +36,28 @@ namespace SudokuSolverTests
         [DataRow(" X   1 3 " + "231 9    " + " 65  31  " + "6789243  " + "1 3 5   6" + "   1367  " + "  936 57 " + "  6 19843" + "3        ")]
         [DataRow(" -   1 3 " + "231 9    " + " 65  31  " + "6789243  " + "1 3 5   6" + "   1367  " + "  936 57 " + "  6 19843" + "3        ")]
         [DataRow(" $   1 3 " + "231 9    " + " 65  31  " + "6789243  " + "1 3 5   6" + "   1367  " + "  936 57 " + "  6 19843" + "3        ")]
-        public void ShouldThrowExceptionInvalidPuzzleInvalidChars(string data)
+        public void ShouldThrowExceptionInvalidSudokuInvalidChars(string data)
         {
             // Prepare
             var sudoku = new SudokuService(GetLoggerMock());
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data.Replace(' ', '0')))
-                .Should().Throw<InvalidPuzzleException>()
+                .Should().Throw<InvalidSudokuException>()
                 .Where(e => e.Message.Equals("Allowed characters: 0-9"));
         }
-
 
         [TestMethod]
         [DataRow("1234")]
         [DataRow("     1 3 231 9     65  31  6789243  1 3 5   6   1367    936 57   6 198433        123456789")]
-        public void ShouldThrowExceptionInvalidPuzzleDimensions(string data)
+        public void ShouldThrowExceptionInvalidSudokuDimensions(string data)
         {
             // Prepare
             var sudoku = new SudokuService(GetLoggerMock());
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data.Replace(' ', '0')))
-                .Should().Throw<InvalidPuzzleException>()
+                .Should().Throw<InvalidSudokuException>()
                 .Where(e => e.Message.Equals("Expected 9x9 grid."));
         }
 
@@ -66,14 +65,14 @@ namespace SudokuSolverTests
         [DataRow("44   9   " + "      3  " + "5  83 96 " + " 5   8 9 " + " 7  5    " + "6   432 7" + "7       6" + "8   64   " + "3 52  4 8")] // Row
         [DataRow("4    9   " + "      3  " + "5  83 96 " + " 5   8 9 " + " 7  5    " + "6   432 7" + "7       6" + "8   64   " + "4 52  4 8")] // Column
         [DataRow("4    9   " + "      3  " + "54 83 96 " + " 5   8 9 " + " 7  5    " + "6   432 7" + "7       6" + "8   64   " + "3 52  4 8")] // Block
-        public void ShouldThrowExceptionInvalidPuzzleDuplicateValues(string data)
+        public void ShouldThrowExceptionInvalidSudokuDuplicateValues(string data)
         {
             // Prepare
             var sudoku = new SudokuService(GetLoggerMock());
 
             // Act/Assert
             sudoku.Invoking(a => a.Solve(data.Replace(' ', '0')))
-                .Should().Throw<InvalidPuzzleException>()
+                .Should().Throw<InvalidSudokuException>()
                 .Where(e => e.Message.Contains("duplicate values found."));
         }
 
@@ -262,7 +261,7 @@ namespace SudokuSolverTests
         [DataRow(" 2   47  " + "  82     " + "9  6     " + "     83 6" + "5 63    4" + " 9 5  17 " + "      9  " + "64   1   " + "       18")]
         [DataRow("9 46     " + "       18" + " 2  5 46 " + "5    1 4 " + "4    2   " + "    9    " + " 8    7  " + " 51  83  " + "   5    6")]
         [DataRow("5  96   4" + "  2    8 " + "        3" + "      2 7" + "     2   " + " 4 75   6" + "   4 9   " + "4    13 2" + "    28  5")]
-        public void ShouldSolveFiveStarPuzzles(string data)
+        public void ShouldSolveFiveStarSudokus(string data)
         {
             int[,] result = new SudokuService(GetLoggerMock()).Solve(data.Replace(' ', '0'));
 

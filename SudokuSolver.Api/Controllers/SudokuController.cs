@@ -26,17 +26,17 @@ namespace SudokuSolver.Api.Controllers
         }
 
         [HttpGet("Solve")]
-        public IActionResult Solve([FromQuery] string puzzle)
+        public IActionResult Solve([FromQuery] string sudoku)
         {
             try
             {
                 _logger.LogTrace("SOLVE");
-                var result = _sudokuService.Solve(puzzle);
+                var result = _sudokuService.Solve(sudoku);
                 return Ok(result);
             }
-            catch (InvalidPuzzleException e)
+            catch (InvalidSudokuException e)
             {
-                var message = $"Invalid puzzle: {e.Message}";
+                var message = $"Invalid sudoku: {e.Message}";
                 _logger.LogInformation(message);
                 return BadRequest(message);
             }

@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System.Net;
 using System.Net.Http.Headers;
 
 namespace SudokuSolver.AppConsole
@@ -27,8 +28,6 @@ namespace SudokuSolver.AppConsole
 
         private static void RunUi()
         {
-            PrintHeader();
-
             bool running = true;
 
             do
@@ -44,10 +43,14 @@ namespace SudokuSolver.AppConsole
                         PrintSudoku(sudoku);
                         break;
                     case "s":
-                        WriteLine("Enter sudoku to solve:");
-                        WriteLine("E.g.: 000001030231090000065003100678924300103050006000136700009360570006019843300000000");
+                        WriteLine("Enter sudoku to solve:", ConsoleColor.Cyan);
+                        WriteLine("E.g.: 000001030231090000065003100678924300103050006000136700009360570006019843300000000", ConsoleColor.Cyan);
                         var puzzle = Console.ReadLine();
                         SolveSoduku(puzzle);
+                        break;
+                    case "h":
+                        WriteLine("Enter the option of choice and select Enter.", ConsoleColor.Cyan);
+                        WriteLine("Tip: use 'Get sudoku' for input for 'Solve sudoku'.", ConsoleColor.Cyan);
                         break;
                     case "q":
                         running = false;
@@ -69,36 +72,36 @@ namespace SudokuSolver.AppConsole
             return JsonConvert.DeserializeObject<string>(result);
         }
 
-        private static void PrintSudoku(string puzzle)
+        private static void PrintSudoku(string sudoku)
         {
-            var array = ConvertStringToSudokuArray(puzzle);
+            var array = ConvertStringToSudokuArray(sudoku);
 
             WriteLine(Gridify(array), ConsoleColor.Cyan);
             WriteLine("As one line:", ConsoleColor.Cyan);
-            WriteLine(puzzle, ConsoleColor.Cyan);
+            WriteLine(sudoku, ConsoleColor.Cyan);
         }
 
-        private static void SolveSoduku(string puzzle)
+        private static void SolveSoduku(string sudoku)
         {
             using HttpClient client = GetHttpClient();
 
-            var result = client.GetAsync($"Sudoku/Solve?puzzle={puzzle}").Result;
+            var response = client.GetAsync($"Sudoku/Solve?sudoku={sudoku}").Result;
 
-            if (result.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode)
             {                
-                var sudoku = JsonConvert.DeserializeObject<int[,]>(result.Content.ReadAsStringAsync().Result);
-                var solved = SudokuIsSolved(sudoku);
+                var result = JsonConvert.DeserializeObject<int[,]>(response.Content.ReadAsStringAsync().Result);
+                var solved = SudokuIsSolved(result);
 
                 WriteLine(solved ? "Solved." : "Not solved. This is how far I got:", solved ? ConsoleColor.Green : ConsoleColor.Magenta);
-                WriteLine(Gridify(sudoku), solved ? ConsoleColor.Green : ConsoleColor.Magenta);
+                WriteLine(Gridify(result), solved ? ConsoleColor.Green : ConsoleColor.Magenta);
             }
-            if (result.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            if (response.StatusCode == HttpStatusCode.BadRequest)
             {
-                var message = result.Content.ReadAsStringAsync().Result;
+                var message = response.Content.ReadAsStringAsync().Result;
                 WriteLine($"Bad request: {message}", ConsoleColor.Red);
             }
-            if(result.StatusCode != System.Net.HttpStatusCode.OK && result.StatusCode != System.Net.HttpStatusCode.BadRequest) 
-                WriteLine($"Status code: {(int)result.StatusCode} ({result.StatusCode})", ConsoleColor.Red);
+            if(response.StatusCode != HttpStatusCode.OK && response.StatusCode != HttpStatusCode.BadRequest) 
+                WriteLine($"Status code: {(int)response.StatusCode} ({response.StatusCode})", ConsoleColor.Red);
         }
 
         private static bool SudokuIsSolved(int[,] sudoku)
@@ -132,26 +135,20 @@ namespace SudokuSolver.AppConsole
 
         private static void PrintOptions()
         {
-            WriteLine("Make a choice:", ConsoleColor.Blue);
-            WriteLine("g: Get sudoku", ConsoleColor.Blue);
-            WriteLine("s: Solve sudoku", ConsoleColor.Blue);
-            WriteLine("q: Quit", ConsoleColor.Blue);
+            WriteLine(new string('-', 25), ConsoleColor.Yellow);
+            WriteLine("Make a choice:", ConsoleColor.Yellow);
+            WriteLine("g: Get sudoku", ConsoleColor.Yellow);
+            WriteLine("s: Solve sudoku", ConsoleColor.Yellow);
+            WriteLine("h: Help", ConsoleColor.Yellow);
+            WriteLine("q: Quit", ConsoleColor.Yellow);
+            WriteLine(new string('-', 25), ConsoleColor.Yellow);
         }
 
-        private static void PrintHeader()
-        {
-            WriteLine(new string('-', 25), ConsoleColor.Blue);
-            WriteLine("Soduku solver", ConsoleColor.Blue);
-            WriteLine(new string('-', 25), ConsoleColor.Blue);
-        }
-
-        private static void WriteLine(object obj, ConsoleColor foregroundColor = ConsoleColor.White, ConsoleColor backgroundColor = ConsoleColor.Black)
+        private static void WriteLine(object obj, ConsoleColor foregroundColor = ConsoleColor.White)
         {
             Console.ForegroundColor = foregroundColor;
-            Console.BackgroundColor = backgroundColor;
             Console.WriteLine(obj);
             Console.ForegroundColor = ConsoleColor.White;
-            Console.BackgroundColor = ConsoleColor.Black;
         }
 
         public static int[,] ConvertStringToSudokuArray(string input)
@@ -170,7 +167,7 @@ namespace SudokuSolver.AppConsole
             client.DefaultRequestHeaders.Accept.Clear();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             client.DefaultRequestHeaders.Add("User-Agent", ".NET application");            
-            client.BaseAddress = new Uri("https://localhost:44310/");
+            client.BaseAddress = new Uri("https://localhost:7111/");
 
             return client;
         }

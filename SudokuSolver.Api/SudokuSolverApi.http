@@ -1,4 +1,4 @@
-@SudokuSolver.Api_HostAddress = https://localhost:44310
+@SudokuSolver.Api_HostAddress = https://localhost:7111
 
 GET {{SudokuSolver.Api_HostAddress}}/Sudoku/
 Accept: application/json
@@ -6,7 +6,7 @@ Accept: application/json
 ###
 
 
-GET {{SudokuSolver.Api_HostAddress}}/Sudoku/Solve?puzzle=000001030231090000065003100678924300103050006000136700009360570006019843300000000
+GET {{SudokuSolver.Api_HostAddress}}/Sudoku/Solve?sudoku=000001030231090000065003100678924300103050006000136700009360570006019843300000000
 Accept: application/json
 
 ###

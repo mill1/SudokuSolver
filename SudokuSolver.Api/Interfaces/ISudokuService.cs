@@ -3,6 +3,6 @@
     public interface ISudokuService
     {
         public string GetSudoku();
-        public int[,] Solve(string puzzle);
+        public int[,] Solve(string sudoku);
     }
 }

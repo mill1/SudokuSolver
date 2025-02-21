@@ -42,7 +42,7 @@ namespace SudokuSolverTests
             var controller = new SudokuController(logger, service.Object);
 
             // Act
-            IActionResult result = controller.Solve("1  4");
+            IActionResult result = controller.Solve("1004");
 
             // Assert
             ((ObjectResult)result).StatusCode.Should().Be((int)HttpStatusCode.OK);
@@ -56,16 +56,16 @@ namespace SudokuSolverTests
             var logger = new Mock<ILogger<SudokuController>>().Object;
             
             var service = new Mock<ISudokuService>();
-            service.Setup(x => x.Solve(It.IsAny<string>())).Throws(new InvalidPuzzleException("Expected 9x9 grid."));
+            service.Setup(x => x.Solve(It.IsAny<string>())).Throws(new InvalidSudokuException("Expected 9x9 grid."));
 
             var controller = new SudokuController(logger, service.Object);
 
             // Act
-            IActionResult result = controller.Solve("1  4");
+            IActionResult result = controller.Solve("1004");
 
             // Assert
             ((ObjectResult)result).StatusCode.Should().Be((int)HttpStatusCode.BadRequest);
-            ((ObjectResult)result).Value.Should().Be("Invalid puzzle: Expected 9x9 grid.");
+            ((ObjectResult)result).Value.Should().Be("Invalid sudoku: Expected 9x9 grid.");
         }
 
         [TestMethod]
@@ -80,7 +80,7 @@ namespace SudokuSolverTests
             var controller = new SudokuController(logger, service.Object);
 
             // Act
-            IActionResult result = controller.Solve("1  4");
+            IActionResult result = controller.Solve("1004");
 
             // Assert
             ((StatusCodeResult)result).StatusCode.Should().Be((int)HttpStatusCode.InternalServerError);
