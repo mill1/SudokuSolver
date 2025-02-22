@@ -2,7 +2,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 
-namespace SudokuSolver.AppConsole
+namespace SudokuSolver.ConsoleApp
 {
     public static class Program
     {
