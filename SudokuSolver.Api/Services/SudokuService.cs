@@ -68,7 +68,6 @@ namespace SudokuSolver.Api.Services
                 _iteration++;
 
                 _logger.LogDebug("Iteration: {Iteration}", _iteration);
-                _logger.LogDebug("Status:\r\n{Sodoku}", ToString());
 
                 if (TryBasicCandidateElimination() > 0) continue;
                 if (TryNakedSingles() > 0) continue;
