@@ -1,0 +1,163 @@
+﻿<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku Solver</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+
+        .sudoku-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 40px);
+            gap: 2px;
+            margin: 20px auto;
+            width: fit-content;
+        }
+
+            .sudoku-grid input {
+                width: 38px;
+                height: 38px;
+                text-align: center;
+                font-size: 20px;
+                border: 1px solid black;
+            }
+
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .message {
+            font-weight: bold;
+        }
+
+        .solved {
+            color: green;
+        }
+
+        .not-solved {
+            color: red;
+        }
+
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Sudoku Solver v1.0</h1>   
+    <div class="sudoku-grid" id="sudokuGrid"></div>
+    <button onclick="importSudoku()">Import</button>
+    <button onclick="solveSudoku()">Solve</button>
+    <button onclick="resetGrid()">Reset</button>
+    <p id="message" class="message"></p>
+
+    <script>
+        const SIZE = 9;
+        const gridElement = document.getElementById("sudokuGrid");
+        const messageElement = document.getElementById("message");
+
+        function createGrid() {
+            gridElement.innerHTML = "";
+            for (let i = 0; i < SIZE; i++) {
+                for (let j = 0; j < SIZE; j++) {
+                    const input = document.createElement("input");
+                    input.type = "text";
+                    input.maxLength = 1;
+                    input.dataset.row = i;
+                    input.dataset.col = j;
+                    input.oninput = (e) => {
+                        if (!/^[1-9]?$/.test(e.target.value)) {
+                            e.target.value = "";
+                        }
+                    };
+                    gridElement.appendChild(input);
+                }
+            }
+        }
+
+        function getSudokuString() {
+            let sudokuString = "";
+            document.querySelectorAll(".sudoku-grid input").forEach(input => {
+                sudokuString += input.value ? input.value : "0";
+            });
+            return sudokuString;
+        }
+
+        function fillGrid(solution) {
+            const inputs = document.querySelectorAll(".sudoku-grid input");
+            let index = 0;
+            for (let row = 0; row < SIZE; row++) {
+                for (let col = 0; col < SIZE; col++) {
+                    inputs[index].value = solution[row][col];
+                    index++;
+                }
+            }
+        }
+
+        function checkIfSolved(solution) {
+            return solution.flat().every(num => num !== 0);
+        }
+
+        async function solveSudoku() {
+            messageElement.textContent = "";
+            messageElement.className = "message";
+            const sudokuString = getSudokuString();
+            const apiUrl = `https://localhost:7111/Sudoku/Solve?sudoku=${sudokuString}`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (response.ok) {
+                    const solution = await response.json();
+                    fillGrid(solution);
+                    if (checkIfSolved(solution)) {
+                        messageElement.textContent = "Solved";
+                        messageElement.classList.add("solved");
+                    } else {
+                        messageElement.textContent = "Not solved";
+                        messageElement.classList.add("not-solved");
+                    }
+                } else if (response.status === 400) {
+                    const errorMessage = await response.text();
+                    messageElement.textContent = "Fout: " + errorMessage;
+                    messageElement.classList.add("error");
+                } else if (response.status === 500) {
+                    messageElement.textContent = "Interne serverfout.";
+                    messageElement.classList.add("error");
+                }
+            } catch (error) {
+                messageElement.textContent = "Er is een verbindingsprobleem.";
+                messageElement.classList.add("error");
+            }
+        }
+
+        function resetGrid() {
+            document.querySelectorAll(".sudoku-grid input").forEach(input => input.value = "");
+            messageElement.textContent = "";
+            messageElement.className = "message";
+        }
+
+        function importSudoku() {
+            const inputString = prompt("Voer een Sudoku-string in (81 tekens, '0' = leeg):");
+            if (inputString && inputString.length === 81 && /^[0-9]+$/.test(inputString)) {
+                const inputs = document.querySelectorAll(".sudoku-grid input");
+                for (let i = 0; i < 81; i++) {
+                    inputs[i].value = inputString[i] === "0" ? "" : inputString[i];
+                }
+            } else {
+                alert("Ongeldige invoer. Zorg ervoor dat de string exact 81 cijfers bevat.");
+            }
+        }
+
+        createGrid();
+    </script>
+
+</body>
+</html>
