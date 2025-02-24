@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using SudokuSolver.Api.Exceptions;
 using SudokuSolver.Api.Interfaces;
-using SudokuSolver.Api.Services;
 
 namespace SudokuSolver.Api.Controllers
 {
