@@ -110,7 +110,8 @@
             messageElement.textContent = "";
             messageElement.className = "message";
             const sudokuString = getSudokuString();
-            const apiUrl = `https://localhost:7111/Sudoku/Solve?sudoku=${sudokuString}`;
+            // const apiUrl = `https://localhost:7111/Sudoku/Solve?sudoku=${sudokuString}`;
+            const apiUrl = `Sudoku/Solve?sudoku=${sudokuString}`;
 
             try {
                 const response = await fetch(apiUrl);
